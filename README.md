@@ -25,6 +25,18 @@ never modifies inventories, sends transactions, or alters packets.
 
 Planned (not yet implemented): Bundle preview.
 
+## How it works
+
+Three concerns are kept apart so that more item types can be added later:
+
+* `src/mod/hover/` tracks the hovered container slot by observing the game's
+  own `ContainerScreenController` hover callbacks.
+* `src/mod/preview/` turns a supported item into a `ContainerPreview` grid
+  through a small `PreviewProvider` boundary (`ShulkerPreviewProvider` reads
+  the `Items` list from the item's NBT).
+* `src/mod/render/` draws a `ContainerPreview` on top of the container screen
+  from LeviLamina's `AfterUIRenderEvent`.
+
 ## Building
 
 Requirements: [xmake](https://xmake.io), Visual Studio 2022 build tools, and a
@@ -38,6 +50,13 @@ xmake
 The packaged mod (`LaminaPeek.dll` + `manifest.json`) is written to
 `bin/LaminaPeek/`. Copy that folder into the `mods/` directory of a LeviLamina
 client installation.
+
+Unit tests for the game-independent layout math:
+
+```shell
+xmake build LaminaPeekTests
+xmake run LaminaPeekTests
+```
 
 ## Contributing
 
