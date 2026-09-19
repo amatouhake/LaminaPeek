@@ -4,7 +4,7 @@
 #include <string>
 
 class ContainerScreenController;
-class ItemStack;
+class ItemStackBase;
 class ScreenController;
 
 namespace lamina_peek::hover {
@@ -41,10 +41,11 @@ public:
 
     [[nodiscard]] std::optional<HoveredSlot> const& current() const { return mCurrent; }
 
-    /// Returns the live item in the tracked slot, but only if `controller` is
-    /// the controller that received the hover. The caller must guarantee that
-    /// `controller` is alive (e.g. it is owned by the ScreenView being rendered).
-    [[nodiscard]] ItemStack const* resolveItem(ScreenController const& controller) const;
+    /// Returns the item the game displays in the tracked slot, but only if
+    /// `controller` is the controller that received the hover. The caller must
+    /// guarantee that `controller` is alive (e.g. it is owned by the ScreenView
+    /// being rendered).
+    [[nodiscard]] ItemStackBase const* resolveItem(ScreenController const& controller) const;
 
 private:
     std::optional<HoveredSlot> mCurrent;

@@ -5,7 +5,7 @@
 #include "mc/client/gui/ViewRequest.h"
 #include "mc/client/gui/screens/controllers/ContainerScreenController.h"
 #include "mc/client/gui/screens/controllers/CraftingScreenController.h"
-#include "mc/world/item/ItemStack.h"
+#include "mc/world/item/ItemStackBase.h"
 
 namespace lamina_peek::hover {
 
@@ -123,11 +123,15 @@ void HoverTracker::onControllerLeft(ContainerScreenController& controller) {
     }
 }
 
-ItemStack const* HoverTracker::resolveItem(ScreenController const& controller) const {
+ItemStackBase const* HoverTracker::resolveItem(ScreenController const& controller) const {
     if (!mCurrent || static_cast<ScreenController const*>(mCurrent->controller) != &controller) {
         return nullptr;
     }
-    return &mCurrent->controller->_getItemStack(mCurrent->collectionName, mCurrent->collectionIndex);
+    // _getVisualItemStack is what the game itself uses for hover text: it goes
+    // through the virtual _getVisualItemStackImpl, so screens that report
+    // hovers for non-container collections (recipe book, creative tabs) resolve
+    // them the same way vanilla does instead of touching the raw container.
+    return &mCurrent->controller->_getVisualItemStack(mCurrent->collectionName, mCurrent->collectionIndex);
 }
 
 } // namespace lamina_peek::hover

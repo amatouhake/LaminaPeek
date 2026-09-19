@@ -4,12 +4,12 @@
 #include "mod/hover/HoverTracker.h"
 
 #include "mc/deps/nbt/CompoundTag.h"
-#include "mc/world/item/ItemStack.h"
+#include "mc/world/item/ItemStackBase.h"
 
 namespace lamina_peek::preview {
 
 ContainerPreview const* HoveredPreviewCache::resolve(ScreenController const& controller) {
-    ItemStack const* item = hover::HoverTracker::getInstance().resolveItem(controller);
+    ItemStackBase const* item = hover::HoverTracker::getInstance().resolveItem(controller);
     if (!item || item->isNull()) {
         clear();
         return nullptr;
@@ -40,7 +40,7 @@ void HoveredPreviewCache::clear() {
     mPreview.reset();
 }
 
-std::optional<ContainerPreview> HoveredPreviewCache::extract(ItemStack const& item) {
+std::optional<ContainerPreview> HoveredPreviewCache::extract(ItemStackBase const& item) {
     for (auto const* provider : mProviders) {
         if (!provider->supports(item)) {
             continue;

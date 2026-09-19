@@ -7,7 +7,7 @@
 #include <optional>
 
 class CompoundTag;
-class ItemStack;
+class ItemStackBase;
 class ScreenController;
 
 namespace lamina_peek::preview {
@@ -31,16 +31,16 @@ private:
     // any field (new stack in the slot, replaced NBT, different count) forces a
     // fresh extraction.
     struct Key {
-        ItemStack const*   stack{nullptr};
-        CompoundTag const* userData{nullptr};
-        short              id{0};
-        short              aux{0};
-        unsigned char      count{0};
+        ItemStackBase const* stack{nullptr};
+        CompoundTag const*   userData{nullptr};
+        short                id{0};
+        short                aux{0};
+        unsigned char        count{0};
 
         bool operator==(Key const&) const = default;
     };
 
-    [[nodiscard]] std::optional<ContainerPreview> extract(ItemStack const& item);
+    [[nodiscard]] std::optional<ContainerPreview> extract(ItemStackBase const& item);
 
     ShulkerPreviewProvider                mShulkerProvider;
     std::array<PreviewProvider const*, 1> mProviders{&mShulkerProvider}; // future: Bundle provider
