@@ -1,6 +1,13 @@
 #pragma once
 
+#include "ll/api/event/ListenerBase.h"
 #include "ll/api/mod/NativeMod.h"
+
+#include "mod/preview/HoveredPreviewCache.h"
+
+namespace ll::event::inline render {
+class AfterUIRenderEvent;
+}
 
 namespace lamina_peek {
 
@@ -23,7 +30,11 @@ public:
     bool disable();
 
 private:
-    ll::mod::NativeMod& mSelf;
+    void onAfterUIRender(ll::event::AfterUIRenderEvent& event);
+
+    ll::mod::NativeMod&          mSelf;
+    ll::event::ListenerPtr       mUIRenderListener;
+    preview::HoveredPreviewCache mPreviewCache;
 };
 
 } // namespace lamina_peek
