@@ -1,29 +1,51 @@
-# LeviLamina Mod Template
+# LaminaPeek
 
-> [!WARNING]
-> Remember to change the [LICENSE](LICENSE) file when you use this template
+A client-side item preview mod for Minecraft Bedrock Edition, built on
+[LeviLamina Client](https://github.com/LiteLDev/LeviLamina).
 
-Mod Template for LeviLamina
+LaminaPeek shows the contents of container-like items directly while you hover
+them in an inventory screen, so you can inspect many stored items quickly
+without opening each one.
 
-## Usage
+## Target
 
-For detailed instructions, see the [LeviLamina Documentation](https://lamina.levimc.org/developer_guides/tutorials/create_your_first_mod/)
+* LeviLamina **v26.51.1** (client)
+* Minecraft Bedrock Edition **1.26.51.x** (Windows x64)
 
-1. Generate a new repository from this template
-2. Clone the new repository
-3. Change the mod name and the expected LeviLamina version in `xmake.lua`
-4. Add your code.
-5. Run `xmake f -y -p windows -a x64 -m release` in the root of the repository
-6. Run `xmake` to build the mod.
+This is a pure client mod. It does not need any server-side component and it
+never modifies inventories, sends transactions, or alters packets.
 
-After a successful build, you will find mod in `bin/`
+## Current scope (MVP)
+
+* Hover a **Shulker Box** in the player inventory, a Chest, or an Ender Chest.
+* Its contents are shown immediately as a 9×3 grid (item icons and stack
+  counts), preserving the real slot layout.
+* No keybind is required; moving the cursor between Shulker Boxes updates the
+  preview instantly.
+
+Planned (not yet implemented): Bundle preview.
+
+## Building
+
+Requirements: [xmake](https://xmake.io), Visual Studio 2022 build tools, and a
+clang-cl toolchain (LLVM).
+
+```shell
+xmake f -y -p windows -a x64 -m release --target_type=client
+xmake
+```
+
+The packaged mod (`LaminaPeek.dll` + `manifest.json`) is written to
+`bin/LaminaPeek/`. Copy that folder into the `mods/` directory of a LeviLamina
+client installation.
 
 ## Contributing
 
-Ask questions by creating an issue.
-
-PRs accepted.
+Ask questions by creating an issue. PRs accepted.
 
 ## License
 
-CC0-1.0 © LeviMC(LiteLDev)
+[MIT](LICENSE) © amatouhake
+
+Bootstrapped from the CC0-1.0 licensed
+[levilamina-mod-template](https://github.com/LiteLDev/levilamina-mod-template).
