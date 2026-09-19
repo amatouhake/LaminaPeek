@@ -52,7 +52,7 @@ void LaminaPeek::onAfterUIRender(ll::event::AfterUIRenderEvent& event) {
     if (!preview) {
         return;
     }
-    // Rendering is wired up in the next step.
+    mPreviewRenderer.render(event.screenView(), event.uiRenderContext(), *preview);
 }
 
 } // namespace lamina_peek

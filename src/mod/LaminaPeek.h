@@ -4,6 +4,7 @@
 #include "ll/api/mod/NativeMod.h"
 
 #include "mod/preview/HoveredPreviewCache.h"
+#include "mod/render/PreviewRenderer.h"
 
 namespace ll::event::inline render {
 class AfterUIRenderEvent;
@@ -35,6 +36,7 @@ private:
     ll::mod::NativeMod&          mSelf;
     ll::event::ListenerPtr       mUIRenderListener;
     preview::HoveredPreviewCache mPreviewCache;
+    render::PreviewRenderer      mPreviewRenderer;
 };
 
 } // namespace lamina_peek
