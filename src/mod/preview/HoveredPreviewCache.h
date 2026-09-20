@@ -1,5 +1,6 @@
 #pragma once
 
+#include "mod/preview/BundlePreviewProvider.h"
 #include "mod/preview/ContainerPreview.h"
 #include "mod/preview/ShulkerPreviewProvider.h"
 
@@ -41,9 +42,9 @@ private:
     };
 
     [[nodiscard]] std::optional<ContainerPreview> extract(ItemStackBase const& item);
-
     ShulkerPreviewProvider                mShulkerProvider;
-    std::array<PreviewProvider const*, 1> mProviders{&mShulkerProvider}; // future: Bundle provider
+    BundlePreviewProvider                 mBundleProvider;
+    std::array<PreviewProvider const*, 2> mProviders{&mShulkerProvider, &mBundleProvider};
     std::optional<Key>                    mKey;
     std::optional<ContainerPreview>       mPreview;
     bool                                  mWarnedExtractionFailure{false};

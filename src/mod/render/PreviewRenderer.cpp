@@ -72,7 +72,12 @@ void PreviewRenderer::render(
     MinecraftUIRenderContext&        context,
     preview::ContainerPreview const& preview
 ) {
-    if (preview.columns <= 0 || preview.rows <= 0 || preview.slots.size() < static_cast<size_t>(preview.slotCount())) {
+    if (preview.columns <= 0 || preview.rows <= 0) {
+        // Dynamic providers (Bundle) report an empty 0x0 grid when the item
+        // holds nothing; there is nothing to draw and no frame to anchor.
+        return;
+    }
+    if (preview.slots.size() < static_cast<size_t>(preview.slotCount())) {
         return;
     }
 

@@ -15,15 +15,18 @@ without opening each one.
 This is a pure client mod. It does not need any server-side component and it
 never modifies inventories, sends transactions, or alters packets.
 
-## Current scope (MVP)
+## Current scope
 
 * Hover a **Shulker Box** in the player inventory, a Chest, or an Ender Chest.
 * Its contents are shown immediately as a 9×3 grid (item icons and stack
   counts), preserving the real slot layout.
-* No keybind is required; moving the cursor between Shulker Boxes updates the
-  preview instantly.
-
-Planned (not yet implemented): Bundle preview.
+* Hover a **Bundle** (any colour, including undyed) in the same screens. Its
+  contents are shown as a compact dynamic grid (3–4 columns, at most 4 rows
+  for 16 entries): every stored stack is drawn, including the tail vanilla's
+  tooltip truncates, with real counts. The preview is read-only: vanilla
+  selection, scroll position and insertion/removal are untouched.
+* No keybind is required; moving the cursor between items updates the
+  preview instantly, with no stale preview left behind.
 
 ## How it works
 
@@ -33,7 +36,8 @@ Three concerns are kept apart so that more item types can be added later:
   own `ContainerScreenController` hover callbacks.
 * `src/mod/preview/` turns a supported item into a `ContainerPreview` grid
   through a small `PreviewProvider` boundary (`ShulkerPreviewProvider` reads
-  the `Items` list from the item's NBT).
+  the `Items` list from the item's NBT; `BundlePreviewProvider` reads the
+  same list and packs it into a bounded dynamic grid).
 * `src/mod/render/` draws a `ContainerPreview` on top of the container screen
   from LeviLamina's `AfterUIRenderEvent`.
 
@@ -77,8 +81,7 @@ so the mod never loads.
 ## Configuration
 
 On first start LaminaPeek writes `mods/LaminaPeek/config/config.json` with the
-defaults below. Settings are grouped per preview provider so future providers
-(for example a `bundle` section) can be added without reshaping the file.
+defaults below. Settings are grouped per preview provider.
 
 ```json
 {
@@ -87,6 +90,10 @@ defaults below. Settings are grouped per preview provider so future providers
         "enabled": true,
         "showEmpty": false,
         "disableVanillaContentsPreview": true
+    },
+    "bundle": {
+        "enabled": true,
+        "showEmpty": false
     }
 }
 ```
@@ -97,6 +104,10 @@ defaults below. Settings are grouped per preview provider so future providers
 * `shulker.disableVanillaContentsPreview` – drop only the vanilla "contained
   items" lines from the Shulker Box hover text; the item name, custom name,
   lore and every other line stay.
+* `bundle.enabled` – master switch. When `false`, LaminaPeek draws no Bundle
+  preview and leaves vanilla behaviour untouched.
+* `bundle.showEmpty` – draw the grid for a Bundle with no items (an empty
+  Bundle otherwise shows nothing).
 
 The file is read once at mod load; restart the game after editing it.
 
