@@ -94,6 +94,11 @@ void LaminaPeek::onAfterUIRender(ll::event::AfterUIRenderEvent& event) {
     if (!preview) {
         return;
     }
+    // An empty container has nothing useful to show unless the user asked
+    // for the grid anyway.
+    if (preview->filledSlotCount() == 0 && !mConfig.shulker.showEmpty) {
+        return;
+    }
     mPreviewRenderer.render(event.screenView(), event.uiRenderContext(), *preview);
 }
 

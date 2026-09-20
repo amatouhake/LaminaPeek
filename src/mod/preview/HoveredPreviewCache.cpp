@@ -28,15 +28,11 @@ ContainerPreview const* HoveredPreviewCache::resolve(ScreenController const& con
             );
         }
         if (mPreview) {
-            size_t filled = 0;
-            for (auto const& slot : mPreview->slots) {
-                if (!slot.isNull()) ++filled;
-            }
             LaminaPeek::getInstance().getSelf().getLogger().debug(
                 "Preview for '{}': {}/{} slots filled",
                 item->getTypeName(),
-                filled,
-                mPreview->slots.size()
+                mPreview->filledSlotCount(),
+                mPreview->slotCount()
             );
         }
     }

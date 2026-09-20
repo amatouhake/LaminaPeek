@@ -18,6 +18,15 @@ struct ContainerPreview {
 
     [[nodiscard]] int slotCount() const { return rows * columns; }
 
+    /// Number of slots holding an item; 0 for a completely empty container.
+    [[nodiscard]] int filledSlotCount() const {
+        int filled = 0;
+        for (auto const& slot : slots) {
+            if (!slot.isNull()) ++filled;
+        }
+        return filled;
+    }
+
     [[nodiscard]] static ContainerPreview empty(int columns, int rows) {
         ContainerPreview preview;
         preview.columns = columns;
