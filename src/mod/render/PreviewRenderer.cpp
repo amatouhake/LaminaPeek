@@ -75,10 +75,12 @@ void PreviewRenderer::render(
     }
 
     // 1. Frame and slot backgrounds. These are batched by the context, so
-    //    flush them before drawing anything that must appear on top.
+    //    flush them before drawing anything that must appear on top. Each
+    //    slot only fills its 16x16 icon area so the 2-unit gaps between cells
+    //    keep the grid visible even when the box is empty.
     context.fillRectangle(toArea(layout.frame), kFrameBackground, kFrameAlpha);
     for (int slot = 0; slot < preview.slotCount(); ++slot) {
-        context.fillRectangle(toArea(layout.cell(slot)), kSlotBackground, kSlotAlpha);
+        context.fillRectangle(toArea(layout.icon(slot)), kSlotBackground, kSlotAlpha);
     }
     context.drawRectangle(toArea(layout.frame), kFrameBorder, 1.0f, 1);
     context.flushImages(kWhite, 1.0f, kFillMaterial);
