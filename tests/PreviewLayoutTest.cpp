@@ -65,9 +65,9 @@ void testClampsToBottomEdge() {
 }
 
 void testCellsFollowRowMajorSlotOrder() {
-    auto const layout = PreviewLayout::anchored(9, 3, 0.0f, 300.0f, 1000.0f, 1000.0f);
-    float const x0    = layout.frame.x0 + PreviewLayout::kPadding;
-    float const y0    = layout.frame.y0 + PreviewLayout::kPadding;
+    auto const  layout = PreviewLayout::anchored(9, 3, 0.0f, 300.0f, 1000.0f, 1000.0f);
+    float const x0     = layout.frame.x0 + PreviewLayout::kPadding;
+    float const y0     = layout.frame.y0 + PreviewLayout::kPadding;
 
     CHECK_RECT(layout.cell(0), x0, y0, x0 + 18.0f, y0 + 18.0f);
     CHECK_RECT(layout.cell(10), x0 + 18.0f, y0 + 18.0f, x0 + 36.0f, y0 + 36.0f); // row 1, column 1
