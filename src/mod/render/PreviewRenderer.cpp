@@ -15,6 +15,7 @@
 #include "mc/client/gui/controls/MeasureResult.h"
 #include "mc/client/gui/controls/UIMeasureStrategy.h"
 #include "mc/client/gui/screens/ScreenView.h"
+#include "mc/client/player/LocalPlayer.h"
 #include "mc/client/renderer/BaseActorRenderContext.h"
 #include "mc/client/renderer/actor/ItemRenderer.h"
 #include "mc/client/renderer/screen/MinecraftUIRenderContext.h"
@@ -22,8 +23,8 @@
 #include "mc/deps/core/string/HashedString.h"
 #include "mc/deps/core/utility/NonOwnerPointer.h"
 #include "mc/deps/input/RectangleArea.h"
+#include "mc/world/item/Item.h"
 
-#include <chrono>
 #include <optional>
 #include <string>
 
@@ -44,13 +45,16 @@ constexpr float kFrameAlpha = 0.92f;
 constexpr float kSlotAlpha  = 1.0f;
 constexpr int   kItemZOrder = 17;
 
-// The glint overlay from renderGuiItemNew(foil = true) blends additively and,
-// measured against an enchanted item in a vanilla slot, tints roughly a third
-// as strongly as the UI's own glint pass; three overlay passes match vanilla.
-constexpr int kGlintPasses = 3;
-// The glint texture scrolls per animation frame; vanilla advances it on the
-// UI's 20 Hz animation clock.
-constexpr auto kGlintFramePeriod = std::chrono::milliseconds(50);
+// renderGuiItemNew(foil = true) draws the additive glint overlay on its own,
+// outside the UI's InventoryItemGlint material pass, and comes out weaker than
+// vanilla's slot glint. Its `transparency` argument scales the overlay
+// linearly, so one pass at this value reproduces vanilla: frame-averaged
+// blue-minus-green over the item pixels of an enchanted book, measured in the
+// same frames as a vanilla inventory slot, was +4 at 1.0, +23 at 1.3, +38 at
+// 1.5 and +27.6 at 1.35 against vanilla's +27.7. Drawing the overlay several
+// times instead (the previous approach) over-tints: +30 for two passes, +58
+// for three, at 1.5-2x the CPU cost.
+constexpr float kGlintOverlayAlpha = 1.35f;
 
 // Vanilla's stack count is a plain UI label ("font_size": "normal", shadow,
 // anchored bottom-right of the 18x18 slot panel with offset [0, 1]); see
@@ -108,35 +112,39 @@ void PreviewRenderer::render(
     IClientInstance& client       = context.mClient;
     ItemRenderer*    itemRenderer = client.getItemRenderer();
     if (itemRenderer) {
-        int const glintFrame =
-            static_cast<int>(std::chrono::steady_clock::now().time_since_epoch() / kGlintFramePeriod);
         BaseActorRenderContext renderContext(context.mScreenContext, client, client.getMinecraftGame_DEPRECATED());
+        Mob* const             holder = client.getLocalPlayer();
         for (int slot = 0; slot < preview.slotCount(); ++slot) {
             ItemStack const& stack = preview.slots[static_cast<size_t>(slot)];
-            if (stack.isNull()) {
+            if (stack.isNull() || !stack.mItem) {
                 continue;
             }
-            Rect const icon = layout.icon(slot);
+            Item const& item = *stack.mItem;
+            Rect const  icon = layout.icon(slot);
+            // Same frame source as a vanilla inventory slot: the item decides
+            // (clock, compass, crossbow, ...); static items return 0.
+            int const frame = item.getAnimationFrameFor(holder, false, &stack, true);
+
             // renderEnchantmentFoil selects the pass: false draws the item
-            // icon itself, true draws only the additive glint overlay (vanilla
-            // draws the icon in one UI pass and the glint in another).
+            // icon itself, true draws only the additive glint overlay.
             itemRenderer
-                ->renderGuiItemNew(renderContext, stack, 0, icon.x0, icon.y0, false, 1.0f, 1.0f, 1.0f, kItemZOrder);
-            if (stack.isEnchanted()) {
-                for (int pass = 0; pass < kGlintPasses; ++pass) {
-                    itemRenderer->renderGuiItemNew(
-                        renderContext,
-                        stack,
-                        glintFrame,
-                        icon.x0,
-                        icon.y0,
-                        true,
-                        1.0f,
-                        1.0f,
-                        1.0f,
-                        kItemZOrder
-                    );
-                }
+                ->renderGuiItemNew(renderContext, stack, frame, icon.x0, icon.y0, false, 1.0f, 1.0f, 1.0f, kItemZOrder);
+            // Vanilla's glint predicate: Item::isGlint, which items override
+            // (enchanted books, enchanted golden apples, ...), not raw
+            // enchantment NBT.
+            if (item.isGlint(stack)) {
+                itemRenderer->renderGuiItemNew(
+                    renderContext,
+                    stack,
+                    frame,
+                    icon.x0,
+                    icon.y0,
+                    true,
+                    kGlintOverlayAlpha,
+                    1.0f,
+                    1.0f,
+                    kItemZOrder
+                );
             }
         }
     }
