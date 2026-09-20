@@ -18,6 +18,7 @@
 #include "mc/deps/core/string/HashedString.h"
 #include "mc/deps/input/RectangleArea.h"
 
+#include <chrono>
 #include <optional>
 #include <string>
 
@@ -39,6 +40,15 @@ constexpr float kSlotAlpha  = 1.0f;
 constexpr float kCountFont  = 1.0f;
 constexpr float kCountLineH = 10.0f; // approx. glyph height at font scale 1
 constexpr int   kItemZOrder = 17;
+
+// The glint overlay from renderGuiItemNew(foil = true) blends additively and,
+// measured against an enchanted item in a vanilla slot, tints roughly a third
+// as strongly as the UI's own glint pass; three overlay passes match vanilla.
+constexpr int kGlintPasses = 3;
+// The glint texture scrolls per animation frame; vanilla advances it on the
+// UI's 20 Hz animation clock.
+constexpr auto kGlintFramePeriod = std::chrono::milliseconds(50);
+
 
 RectangleArea toArea(Rect const& r) { return RectangleArea{r.x0, r.x1, r.y0, r.y1}; }
 
@@ -89,6 +99,8 @@ void PreviewRenderer::render(
     IClientInstance& client       = context.mClient;
     ItemRenderer*    itemRenderer = client.getItemRenderer();
     if (itemRenderer) {
+        int const glintFrame =
+            static_cast<int>(std::chrono::steady_clock::now().time_since_epoch() / kGlintFramePeriod);
         BaseActorRenderContext renderContext(context.mScreenContext, client, client.getMinecraftGame_DEPRECATED());
         for (int slot = 0; slot < preview.slotCount(); ++slot) {
             ItemStack const& stack = preview.slots[static_cast<size_t>(slot)];
@@ -96,18 +108,27 @@ void PreviewRenderer::render(
                 continue;
             }
             Rect const icon = layout.icon(slot);
-            itemRenderer->renderGuiItemNew(
-                renderContext,
-                stack,
-                0,
-                icon.x0,
-                icon.y0,
-                stack.isEnchanted(),
-                1.0f,
-                1.0f,
-                1.0f,
-                kItemZOrder
-            );
+            // renderEnchantmentFoil selects the pass: false draws the item
+            // icon itself, true draws only the additive glint overlay (vanilla
+            // draws the icon in one UI pass and the glint in another).
+            itemRenderer
+                ->renderGuiItemNew(renderContext, stack, 0, icon.x0, icon.y0, false, 1.0f, 1.0f, 1.0f, kItemZOrder);
+            if (stack.isEnchanted()) {
+                for (int pass = 0; pass < kGlintPasses; ++pass) {
+                    itemRenderer->renderGuiItemNew(
+                        renderContext,
+                        stack,
+                        glintFrame,
+                        icon.x0,
+                        icon.y0,
+                        true,
+                        1.0f,
+                        1.0f,
+                        1.0f,
+                        kItemZOrder
+                    );
+                }
+            }
         }
     }
 
