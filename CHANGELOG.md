@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-21
+
 ### Added
 
 - Shulker Box preview: hovering a Shulker Box (any colour) in the player
@@ -16,3 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `shulker.showEmpty` and `shulker.disableVanillaContentsPreview`.
 - Vanilla's "contained items" hover-text lines are hidden for Shulker Boxes
   while the preview is enabled; the rest of the tooltip is unchanged.
+
+### Changed
+
+- Target LeviLamina Client 26.51.3 (built against its SDK; `--trace=y` uses
+  the `RotatePolicy`-based `ll::io::FileSink` introduced in 26.51.2).
