@@ -49,7 +49,17 @@ xmake
 
 The packaged mod (`LaminaPeek.dll` + `manifest.json`) is written to
 `bin/LaminaPeek/`. Copy that folder into the `mods/` directory of a LeviLamina
-client installation.
+client installation (for a LeviLauncher instance:
+`%APPDATA%\levilauncher.exeersions\<version>\mods\LaminaPeek\`).
+
+Keep the generated `manifest.json`: LeviLamina only loads mods whose manifest
+says `"type": "native"`. Importing the bare DLL through LeviLauncher's
+"import mod" dialog as `preload-native` produces a manifest LeviLamina ignores,
+so the mod never loads.
+
+For runtime diagnostics, configure with `--trace=y`; the mod then logs hover,
+extraction and render events at debug level and mirrors them, flushed
+immediately, to `mods/LaminaPeek/trace.log`.
 
 Unit tests for the game-independent layout math:
 
