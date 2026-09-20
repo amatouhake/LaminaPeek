@@ -9,6 +9,7 @@
 #include "ll/api/io/FileSink.h"
 #include "ll/api/io/LogLevel.h"
 #include "ll/api/io/PatternFormatter.h"
+#include "ll/api/io/RotatePolicy.h"
 #include "ll/api/mod/RegisterHelper.h"
 
 #include "mc/client/gui/screens/ScreenController.h"
@@ -30,11 +31,12 @@ bool LaminaPeek::load() {
 #ifdef LAMINAPEEK_TRACE
     // Trace builds mirror every line, flushed immediately, into the mod
     // directory so the diagnostics can be followed while the game runs.
+    // Rotation is disabled so the file is simply appended to across runs.
     getSelf().getLogger().setLevel(ll::io::LogLevel::Debug);
     auto sink = std::make_shared<ll::io::FileSink>(
         getSelf().getModDir() / "trace.log",
         ll::makePolymorphic<ll::io::PatternFormatter>("[{3:.3%F %T.} {2}][{1}] {0}", false),
-        std::ios::app
+        ll::io::RotatePolicy::disabled()
     );
     sink->setFlushLevel(ll::io::LogLevel::Debug);
     getSelf().getLogger().addSink(std::move(sink));

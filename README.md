@@ -9,7 +9,7 @@ without opening each one.
 
 ## Target
 
-* LeviLamina **v26.51.1** (client)
+* LeviLamina **v26.51.3** (client)
 * Minecraft Bedrock Edition **1.26.51.x** (Windows x64)
 
 This is a pure client mod. It does not need any server-side component and it
@@ -37,6 +37,22 @@ Three concerns are kept apart so that more item types can be added later:
 * `src/mod/render/` draws a `ContainerPreview` on top of the container screen
   from LeviLamina's `AfterUIRenderEvent`.
 
+## Installation
+
+Download `LaminaPeek-client-windows-x64.zip` from the
+[GitHub Releases](https://github.com/amatouhake/LaminaPeek/releases) page and
+copy the `LaminaPeek/` directory it contains (`LaminaPeek.dll` +
+`manifest.json`) into the `mods/` directory of a LeviLamina client
+installation (for a LeviLauncher instance:
+`%APPDATA%\levilauncher.exe\versions\<version>\mods\LaminaPeek\`).
+
+The repository also ships a `tooth.json`, so the release can be installed as
+the LIP package `github.com/amatouhake/LaminaPeek` where LIP / LeviLauncher
+package installation is available.
+
+LaminaPeek is early (`0.x`) software: the Shulker Box preview is usable, but
+its behaviour and configuration may still change between releases.
+
 ## Building
 
 Requirements: [xmake](https://xmake.io), Visual Studio 2022 build tools, and a
@@ -48,9 +64,10 @@ xmake
 ```
 
 The packaged mod (`LaminaPeek.dll` + `manifest.json`) is written to
-`bin/LaminaPeek/`. Copy that folder into the `mods/` directory of a LeviLamina
-client installation (for a LeviLauncher instance:
-`%APPDATA%\levilauncher.exe\versions\<version>\mods\LaminaPeek\`).
+`bin/LaminaPeek/`; install that folder as described under
+[Installation](#installation). The `version` in the generated `manifest.json`
+is derived from the nearest `vMAJOR.MINOR.PATCH` Git tag (`0.0.0` when there
+is none).
 
 Keep the generated `manifest.json`: LeviLamina only loads mods whose manifest
 says `"type": "native"`. Importing the bare DLL through LeviLauncher's
