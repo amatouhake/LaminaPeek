@@ -3,6 +3,7 @@
 #include "ll/api/event/ListenerBase.h"
 #include "ll/api/mod/NativeMod.h"
 
+#include "mod/Config.h"
 #include "mod/preview/HoveredPreviewCache.h"
 #include "mod/render/PreviewRenderer.h"
 
@@ -21,6 +22,8 @@ public:
 
     [[nodiscard]] ll::mod::NativeMod& getSelf() const { return mSelf; }
 
+    [[nodiscard]] Config const& getConfig() const { return mConfig; }
+
     /// @return True if the mod is loaded successfully.
     bool load();
 
@@ -34,6 +37,7 @@ private:
     void onAfterUIRender(ll::event::AfterUIRenderEvent& event);
 
     ll::mod::NativeMod&          mSelf;
+    Config                       mConfig;
     ll::event::ListenerPtr       mUIRenderListener;
     preview::HoveredPreviewCache mPreviewCache;
     render::PreviewRenderer      mPreviewRenderer;

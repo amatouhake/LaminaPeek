@@ -57,6 +57,32 @@ says `"type": "native"`. Importing the bare DLL through LeviLauncher's
 "import mod" dialog as `preload-native` produces a manifest LeviLamina ignores,
 so the mod never loads.
 
+## Configuration
+
+On first start LaminaPeek writes `mods/LaminaPeek/config/config.json` with the
+defaults below. Settings are grouped per preview provider so future providers
+(for example a `bundle` section) can be added without reshaping the file.
+
+```json
+{
+    "version": 1,
+    "shulker": {
+        "enabled": true,
+        "showEmpty": false,
+        "disableVanillaContentsPreview": true
+    }
+}
+```
+
+* `shulker.enabled` – master switch. When `false`, LaminaPeek draws no Shulker
+  preview and leaves vanilla behaviour untouched.
+* `shulker.showEmpty` – draw the 9×3 grid for a Shulker Box with no items.
+* `shulker.disableVanillaContentsPreview` – drop only the vanilla "contained
+  items" lines from the Shulker Box hover text; the item name, custom name,
+  lore and every other line stay.
+
+The file is read once at mod load; restart the game after editing it.
+
 For runtime diagnostics, configure with `--trace=y`; the mod then logs hover,
 extraction and render events at debug level and mirrors them, flushed
 immediately, to `mods/LaminaPeek/trace.log`.

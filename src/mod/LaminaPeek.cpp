@@ -2,6 +2,7 @@
 
 #include "mod/hover/HoverTracker.h"
 
+#include "ll/api/Config.h"
 #include "ll/api/event/EventBus.h"
 #include "ll/api/event/render/UIRenderEvent.h"
 #include "ll/api/io/FileSink.h"
@@ -34,6 +35,24 @@ bool LaminaPeek::load() {
     getSelf().getLogger().info("Trace build: debug logging enabled, mirrored to trace.log");
 #endif
     getSelf().getLogger().debug("Loading...");
+
+    // Missing file -> written with defaults; unknown/old version -> merged
+    // with defaults and rewritten, so the file always reflects the schema.
+    auto const configPath = getSelf().getConfigDir() / "config.json";
+    try {
+        if (!ll::config::loadConfig(mConfig, configPath)) {
+            ll::config::saveConfig(mConfig, configPath);
+        }
+    } catch (std::exception const& e) {
+        getSelf().getLogger().error("Failed to load {}: {}; using defaults", configPath.string(), e.what());
+        mConfig = Config{};
+    }
+    getSelf().getLogger().debug(
+        "Config: shulker.enabled={} showEmpty={} disableVanillaContentsPreview={}",
+        mConfig.shulker.enabled,
+        mConfig.shulker.showEmpty,
+        mConfig.shulker.disableVanillaContentsPreview
+    );
     return true;
 }
 
@@ -66,6 +85,9 @@ void LaminaPeek::onAfterUIRender(ll::event::AfterUIRenderEvent& event) {
     // screen that owns the hovered slot is interesting.
     auto* controller = event.screenView().mController.get();
     if (!controller || !controller->_isContainerScreen()) {
+        return;
+    }
+    if (!mConfig.shulker.enabled) {
         return;
     }
     auto const* preview = mPreviewCache.resolve(*controller);
