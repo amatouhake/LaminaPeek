@@ -184,10 +184,10 @@ void LaminaPeek::onAfterUIRender(ll::event::AfterUIRenderEvent& event) {
     // own master switch and empty-grid setting. Gating here (rather than in
     // the providers) keeps extraction read-only and lets hover-switching fall
     // through to the next frame's re-extraction with no stale preview: a
-    // disabled family simply never draws. The Bundle grid is dynamic (never
-    // 9x3), so grid shape identifies the family without re-reading the item.
+    // disabled family simply never draws. The family is stamped by the
+    // extracting provider, never inferred from grid shape.
     bool showEmpty = false;
-    if (preview->columns == 9 && preview->rows == 3) {
+    if (preview->family == preview::ContainerPreview::Family::Shulker) {
         if (!mConfig.shulker.enabled) {
             return;
         }

@@ -58,20 +58,25 @@ std::optional<ContainerPreview> BundlePreviewProvider::extract(ItemStackBase con
         return std::nullopt;
     }
 
-    // No user data (or no "Items" list) simply means an empty Bundle.
+    // No user data (or no "Items" list) simply means an empty Bundle: report
+    // the minimal 3x1 frame so `bundle.showEmpty` has something to draw, and
+    // let the render layer decide (it skips empty grids unless asked).
     auto const* userData = item.mUserData.get();
     if (!userData) {
-        return ContainerPreview::empty(0, 0);
+        auto preview   = ContainerPreview::empty(BundleGrid::kEmptyColumns, BundleGrid::kEmptyRows);
+        preview.family = ContainerPreview::Family::Bundle;
+        return preview;
     }
     auto itemsIt = userData->mTags.find(kItemsKey);
     if (itemsIt == userData->mTags.end() || !itemsIt->second.is_array()) {
-        return ContainerPreview::empty(0, 0);
+        auto preview   = ContainerPreview::empty(BundleGrid::kEmptyColumns, BundleGrid::kEmptyRows);
+        preview.family = ContainerPreview::Family::Bundle;
+        return preview;
     }
-
-    // First pass: decode every entry into its stored slot, tolerating gaps
-    // and out-of-range indices. Entries are keyed by Slot (like the Shulker
-    // provider) rather than list order, so a reordered or sparse list still
-    // maps each stack to the slot the game means.
+    // First pass: decode every entry into its stored slot. Entries are keyed
+    // by Slot (like the Shulker provider) rather than list order, so a
+    // reordered or sparse list still maps each stack to the slot the game
+    // means. Anything undecodable is counted as skipped, never drawn.
     struct DecodedEntry {
         int       slot;
         ItemStack stack;
@@ -80,12 +85,14 @@ std::optional<ContainerPreview> BundlePreviewProvider::extract(ItemStackBase con
     int                       skipped = 0;
     for (auto const& entryPtr : itemsIt->second.get<ListTag>()) {
         if (!entryPtr || entryPtr->getId() != Tag::Type::Compound) {
+            ++skipped;
             continue;
         }
         auto const& entry = entryPtr->as<CompoundTag>();
 
         int const slot = readSlotIndex(entry);
         if (slot < 0 || slot >= BundleGrid::kMaxSlots) {
+            ++skipped;
             continue;
         }
 
@@ -96,6 +103,7 @@ std::optional<ContainerPreview> BundlePreviewProvider::extract(ItemStackBase con
         try {
             ItemStack stack = ItemStack::fromTag(entry);
             if (stack.isNull()) {
+                ++skipped;
                 continue;
             }
             decoded.push_back(DecodedEntry{slot, std::move(stack)});
@@ -105,8 +113,9 @@ std::optional<ContainerPreview> BundlePreviewProvider::extract(ItemStackBase con
     }
 
     if (decoded.empty()) {
-        auto preview              = ContainerPreview::empty(0, 0);
-        preview.skippedSlotCount  = skipped;
+        auto preview             = ContainerPreview::empty(BundleGrid::kEmptyColumns, BundleGrid::kEmptyRows);
+        preview.family           = ContainerPreview::Family::Bundle;
+        preview.skippedSlotCount = skipped;
         return preview;
     }
 
@@ -122,6 +131,7 @@ std::optional<ContainerPreview> BundlePreviewProvider::extract(ItemStackBase con
     }
     BundleGrid const grid   = BundleGrid::shapeFor(static_cast<int>(decoded.size()));
     auto             preview = ContainerPreview::empty(grid.columns, grid.rows);
+    preview.family           = ContainerPreview::Family::Bundle;
     for (size_t i = 0; i < decoded.size(); ++i) {
         preview.slots[i] = std::move(decoded[i].stack);
     }

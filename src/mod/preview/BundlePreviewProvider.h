@@ -54,7 +54,10 @@ struct BundleGrid {
     /// Widest grid: 4 columns of 18-unit cells plus padding is ~80 GUI units,
     /// on-screen at ordinary UI sizes; wider would collide with hover text.
     static constexpr int kMaxColumns = 4;
-
+    /// Empty Bundle frame (drawn only when `bundle.showEmpty` is set): the
+    /// narrowest grid, one row, so an empty Bundle is unobtrusive.
+    static constexpr int kEmptyColumns = 3;
+    static constexpr int kEmptyRows    = 1;
     int columns{0};
     int rows{0};
 

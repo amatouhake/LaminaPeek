@@ -106,8 +106,8 @@ defaults below. Settings are grouped per preview provider.
   lore and every other line stay.
 * `bundle.enabled` – master switch. When `false`, LaminaPeek draws no Bundle
   preview and leaves vanilla behaviour untouched.
-* `bundle.showEmpty` – draw the grid for a Bundle with no items (an empty
-  Bundle otherwise shows nothing).
+* `bundle.showEmpty` – draw the minimal 3×1 frame for a Bundle with no items
+  (an empty Bundle otherwise shows nothing).
 
 The file is read once at mod load; restart the game after editing it.
 

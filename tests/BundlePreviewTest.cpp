@@ -30,9 +30,15 @@ struct Grid {
     int rows;
 };
 
-constexpr int kMaxSlots   = 16;
-constexpr int kMinColumns = 3;
-constexpr int kMaxColumns = 4;
+constexpr int kMaxSlots     = 16;
+constexpr int kMinColumns   = 3;
+constexpr int kMaxColumns   = 4;
+constexpr int kEmptyColumns = 3;
+constexpr int kEmptyRows    = 1;
+
+// Empty Bundles report the minimal 3x1 frame (the render layer decides
+// whether to draw it via `bundle.showEmpty`); this mirrors the provider.
+constexpr Grid emptyShape() { return {kEmptyColumns, kEmptyRows}; }
 
 constexpr Grid shapeFor(int filled) {
     if (filled <= 0) {
@@ -78,11 +84,15 @@ void testRejectsNonBundles() {
     CHECK(!isBundleTypeName("minecraft:bundlelike"));
 }
 
-void testEmptyBundleHasNoGrid() {
+void testEmptyBundleReportsMinimalFrame() {
+    // shapeFor(<=0) stays 0x0 (nothing to pack); the provider reports the
+    // minimal 3x1 frame for empty Bundles so `bundle.showEmpty` draws it.
     Grid const g = shapeFor(0);
     CHECK(g.columns == 0 && g.rows == 0);
     Grid const neg = shapeFor(-3);
     CHECK(neg.columns == 0 && neg.rows == 0);
+    Grid const empty = emptyShape();
+    CHECK(empty.columns == kEmptyColumns && empty.rows == kEmptyRows);
 }
 
 void testSingleEntryStaysReadable() {
@@ -129,7 +139,7 @@ void testEveryShapeFitsOnScreen() {
 int runBundlePreviewTests() {
     testSupportsEveryBundleColour();
     testRejectsNonBundles();
-    testEmptyBundleHasNoGrid();
+    testEmptyBundleReportsMinimalFrame();
     testSingleEntryStaysReadable();
     testPrefersWiderShapes();
     testFullBundleStaysBounded();

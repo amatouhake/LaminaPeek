@@ -15,8 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   including the tail vanilla's tooltip truncates. Read-only: vanilla
   selection, scroll, insertion and removal are untouched.
 - `config.json` gains a `bundle` section (`bundle.enabled`,
-  `bundle.showEmpty`); an empty Bundle shows nothing unless `showEmpty` is
-  set.
+  `bundle.showEmpty`); an empty Bundle draws its minimal 3×1 frame only when
+  `showEmpty` is set, and shows nothing otherwise.
 
 ## [0.1.0] - 2026-09-21
 
