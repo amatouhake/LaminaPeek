@@ -19,6 +19,14 @@ ContainerPreview const* HoveredPreviewCache::resolve(ScreenController const& con
     if (!mKey || *mKey != key) {
         mKey     = key;
         mPreview = extract(*item);
+        if (!mPreview) {
+            LaminaPeek::getInstance().getSelf().getLogger().debug(
+                "Hovered '{}' x{} (userData: {}) - not previewable",
+                item->getTypeName(),
+                item->mCount,
+                item->mUserData ? "yes" : "no"
+            );
+        }
         if (mPreview) {
             size_t filled = 0;
             for (auto const& slot : mPreview->slots) {

@@ -1,5 +1,6 @@
 #include "mod/render/PreviewRenderer.h"
 
+#include "mod/LaminaPeek.h"
 #include "mod/preview/ContainerPreview.h"
 #include "mod/render/PreviewLayout.h"
 
@@ -56,6 +57,22 @@ void PreviewRenderer::render(
     glm::vec2 const screen  = view.mSize;
     auto const      layout =
         PreviewLayout::anchored(preview.columns, preview.rows, pointer.x, pointer.y, screen.x, screen.y);
+
+    static bool sLoggedFirstRender = false;
+    if (!sLoggedFirstRender) {
+        sLoggedFirstRender = true;
+        LaminaPeek::getInstance().getSelf().getLogger().debug(
+            "First preview render: pointer=({}, {}) screen=({}, {}) frame=({}, {})-({}, {})",
+            pointer.x,
+            pointer.y,
+            screen.x,
+            screen.y,
+            layout.frame.x0,
+            layout.frame.y0,
+            layout.frame.x1,
+            layout.frame.y1
+        );
+    }
 
     // 1. Frame and slot backgrounds. These are batched by the context, so
     //    flush them before drawing anything that must appear on top.

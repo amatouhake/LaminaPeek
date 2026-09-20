@@ -1,5 +1,7 @@
 #include "mod/hover/HoverTracker.h"
 
+#include "mod/LaminaPeek.h"
+
 #include "ll/api/memory/Hook.h"
 
 #include "mc/client/gui/ViewRequest.h"
@@ -101,6 +103,7 @@ void HoverTracker::onSlotHovered(ContainerScreenController& controller, std::str
         return;
     }
     mCurrent = HoveredSlot{&controller, collectionName, index};
+    LaminaPeek::getInstance().getSelf().getLogger().debug("Hover {}[{}]", collectionName, index);
 }
 
 void HoverTracker::onSlotUnhovered(
@@ -114,6 +117,7 @@ void HoverTracker::onSlotUnhovered(
     if (mCurrent && mCurrent->controller == &controller && mCurrent->collectionIndex == index
         && mCurrent->collectionName == collectionName) {
         mCurrent.reset();
+        LaminaPeek::getInstance().getSelf().getLogger().debug("Unhover {}[{}]", collectionName, index);
     }
 }
 
