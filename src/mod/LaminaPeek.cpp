@@ -14,6 +14,11 @@
 #include "mc/client/gui/screens/ScreenController.h"
 #include "mc/client/gui/screens/ScreenView.h"
 
+#include <algorithm>
+#include <chrono>
+#include <optional>
+#include <vector>
+
 namespace lamina_peek {
 
 LaminaPeek& LaminaPeek::getInstance() {
@@ -83,6 +88,70 @@ bool LaminaPeek::disable() {
     return true;
 }
 
+#ifdef LAMINAPEEK_TRACE
+namespace {
+// Aggregated timing for the container screen's render callback: the interval
+// between consecutive callbacks approximates the frame time seen by the
+// render thread (it includes waiting for present), and the render duration is
+// CPU time spent inside PreviewRenderer::render. Reported every 5 seconds.
+struct PerfStats {
+    using clock = std::chrono::steady_clock;
+    std::vector<double>              frameMs;
+    std::vector<double>              renderUs;
+    std::optional<clock::time_point> lastFrame;
+    clock::time_point                lastReport = clock::now();
+    ScreenController const*          controller{nullptr};
+
+    static double percentile(std::vector<double>& v, double p) {
+        if (v.empty()) return 0.0;
+        std::sort(v.begin(), v.end());
+        size_t const idx = std::min(v.size() - 1, static_cast<size_t>(p * static_cast<double>(v.size())));
+        return v[idx];
+    }
+    static double mean(std::vector<double> const& v) {
+        if (v.empty()) return 0.0;
+        double sum = 0;
+        for (double x : v) sum += x;
+        return sum / static_cast<double>(v.size());
+    }
+
+    void frame(ScreenController const& ctrl, double renderDurationUs, bool rendered) {
+        auto const now = clock::now();
+        if (controller != &ctrl) {
+            controller = &ctrl;
+            lastFrame.reset();
+        }
+        if (lastFrame) {
+            frameMs.push_back(std::chrono::duration<double, std::milli>(now - *lastFrame).count());
+        }
+        lastFrame = now;
+        if (rendered) renderUs.push_back(renderDurationUs);
+        if (now - lastReport >= std::chrono::seconds(5) && !frameMs.empty()) {
+            auto fm = frameMs;
+            auto ru = renderUs;
+            LaminaPeek::getInstance().getSelf().getLogger().debug(
+                "perf: frames={} frame avg={:.2f}ms p99={:.2f}ms max={:.2f}ms ({:.0f} fps) | render n={} avg={:.0f}us "
+                "p99={:.0f}us max={:.0f}us",
+                fm.size(),
+                mean(fm),
+                percentile(fm, 0.99),
+                percentile(fm, 1.0),
+                1000.0 / std::max(mean(fm), 1e-6),
+                ru.size(),
+                mean(ru),
+                percentile(ru, 0.99),
+                percentile(ru, 1.0)
+            );
+            frameMs.clear();
+            renderUs.clear();
+            lastReport = now;
+        }
+    }
+};
+PerfStats gPerf;
+} // namespace
+#endif
+
 void LaminaPeek::onAfterUIRender(ll::event::AfterUIRenderEvent& event) {
     // Every ScreenView on the stack renders each frame; only the container
     // screen that owns the hovered slot is interesting.
@@ -90,6 +159,19 @@ void LaminaPeek::onAfterUIRender(ll::event::AfterUIRenderEvent& event) {
     if (!controller || !controller->_isContainerScreen()) {
         return;
     }
+#ifdef LAMINAPEEK_TRACE
+    auto const perfStart = std::chrono::steady_clock::now();
+    bool       rendered  = false;
+    struct PerfScope {
+        ScreenController const&               ctrl;
+        std::chrono::steady_clock::time_point start;
+        bool&                                 rendered;
+        ~PerfScope() {
+            auto const us = std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - start).count();
+            gPerf.frame(ctrl, us, rendered);
+        }
+    } perfScope{*controller, perfStart, rendered};
+#endif
     if (!mConfig.shulker.enabled) {
         return;
     }
@@ -102,6 +184,9 @@ void LaminaPeek::onAfterUIRender(ll::event::AfterUIRenderEvent& event) {
     if (preview->filledSlotCount() == 0 && !mConfig.shulker.showEmpty) {
         return;
     }
+#ifdef LAMINAPEEK_TRACE
+    rendered = true;
+#endif
     mPreviewRenderer.render(event.screenView(), event.uiRenderContext(), *preview);
 }
 
