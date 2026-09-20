@@ -50,7 +50,7 @@ xmake
 The packaged mod (`LaminaPeek.dll` + `manifest.json`) is written to
 `bin/LaminaPeek/`. Copy that folder into the `mods/` directory of a LeviLamina
 client installation (for a LeviLauncher instance:
-`%APPDATA%\levilauncher.exeersions\<version>\mods\LaminaPeek\`).
+`%APPDATA%\levilauncher.exe\versions\<version>\mods\LaminaPeek\`).
 
 Keep the generated `manifest.json`: LeviLamina only loads mods whose manifest
 says `"type": "native"`. Importing the bare DLL through LeviLauncher's
