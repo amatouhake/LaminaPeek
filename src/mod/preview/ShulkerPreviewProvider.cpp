@@ -63,12 +63,18 @@ std::optional<ContainerPreview> ShulkerPreviewProvider::extract(ItemStackBase co
         }
 
         // fromTag resolves the item by name through the client's item registry
-        // and yields a null stack for unknown or malformed entries.
-        ItemStack stack = ItemStack::fromTag(entry);
-        if (stack.isNull()) {
-            continue;
+        // and yields a null stack for unknown or malformed entries. A single
+        // entry that throws must not take the rest of the box with it, so the
+        // failure is contained to its slot.
+        try {
+            ItemStack stack = ItemStack::fromTag(entry);
+            if (stack.isNull()) {
+                continue;
+            }
+            preview.slots[static_cast<size_t>(slot)] = stack;
+        } catch (...) {
+            ++preview.skippedSlotCount;
         }
-        preview.slots[static_cast<size_t>(slot)] = stack;
     }
 
     return preview;

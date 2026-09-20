@@ -34,6 +34,13 @@ ContainerPreview const* HoveredPreviewCache::resolve(ScreenController const& con
                 mPreview->filledSlotCount(),
                 mPreview->slotCount()
             );
+            if (mPreview->skippedSlotCount > 0) {
+                LaminaPeek::getInstance().getSelf().getLogger().warn(
+                    "Preview for '{}': {} slot(s) could not be decoded and were left empty",
+                    item->getTypeName(),
+                    mPreview->skippedSlotCount
+                );
+            }
         }
     }
     return mPreview ? &*mPreview : nullptr;

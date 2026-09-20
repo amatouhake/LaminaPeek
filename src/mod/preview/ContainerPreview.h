@@ -14,7 +14,8 @@ namespace lamina_peek::preview {
 struct ContainerPreview {
     int                    columns{0};
     int                    rows{0};
-    std::vector<ItemStack> slots; // size == rows * columns; null stacks for empty slots
+    std::vector<ItemStack> slots;               // size == rows * columns; null stacks for empty slots
+    int                    skippedSlotCount{0}; // entries that could not be decoded and were left empty
 
     [[nodiscard]] int slotCount() const { return rows * columns; }
 
