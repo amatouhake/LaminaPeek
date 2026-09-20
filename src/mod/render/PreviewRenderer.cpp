@@ -161,16 +161,20 @@ void PreviewRenderer::render(
         if (stack.isNull() || !stack.mItem) {
             continue;
         }
-        if (!shouldShowDurabilityBar(stack.isDamageableItem(), stack.getDamageValue(), stack.mItem->getMaxDamage())) {
+        int const maxDamage = static_cast<int>(stack.mItem->getMaxDamage());
+        if (!shouldShowDurabilityBar(stack.isDamageableItem(), stack.getDamageValue(), maxDamage)) {
             continue;
         }
-        float const ratio =
-            durabilityRatio(stack.getDamageValue(), static_cast<int>(stack.mItem->getMaxDamage()));
+        float const         ratio      = durabilityRatio(stack.getDamageValue(), maxDamage);
         Rect const          background = durabilityBackground(layout.icon(slot));
         Rect const          foreground = durabilityForeground(background, ratio);
         DurabilityRgb const rgb        = durabilityColor(ratio);
         context.fillRectangle(toArea(background), kDurabilityBackground, kSlotAlpha);
-        context.fillRectangle(toArea(foreground), mce::Color{rgb.r, rgb.g, rgb.b, 1.0f}, kSlotAlpha);
+        // The background stays unconditional so a fully-used item still shows
+        // the dark strip; the foreground collapses to zero width at ratio 0.
+        if (foreground.width() > 0.0f) {
+            context.fillRectangle(toArea(foreground), mce::Color{rgb.r, rgb.g, rgb.b, 1.0f}, kSlotAlpha);
+        }
     }
     context.flushImages(kWhite, 1.0f, kFillMaterial);
     // 4. Stack counts, laid out like vanilla's stack_count_label: the font a

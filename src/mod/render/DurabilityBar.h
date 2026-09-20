@@ -60,14 +60,20 @@ struct DurabilityRgb {
     if (i == 1) {
         return DurabilityRgb{1.0f - f, 1.0f, 0.0f};
     }
+    // Unreachable: h in (0, 1/3) gives h6 in (0, 2), so i is 0 or 1. Kept as
+    // a value return (rather than [[unreachable]]) so floating-point edge
+    // cases slipping past the guards still yield a sane green instead of UB.
     return DurabilityRgb{0.0f, 1.0f, f};
 }
 
 // Bar shape, in the same GUI units as PreviewLayout: 2 units tall with a
 // 1-unit margin on the left, right and bottom of the icon, matching the
-// vanilla overlay which sits at the bottom of the item sprite.
-constexpr float kDurabilityBarHeight      = 2.0f;
-constexpr float kDurabilityBarSideMargin  = 1.0f;
+// vanilla overlay which sits at the bottom of the item sprite. Dimensions are
+// proportionally derived from vanilla's 13-wide bar on a 16x16 sprite
+// (13 + 2x1 side margins, 2 tall + 1 bottom margin); a pixel-exact runtime
+// screenshot comparison against a vanilla slot is still pending pre-merge.
+constexpr float kDurabilityBarHeight       = 2.0f;
+constexpr float kDurabilityBarSideMargin   = 1.0f;
 constexpr float kDurabilityBarBottomMargin = 1.0f;
 constexpr float kDurabilityBarMinWidth    = 1.0f; // nearly-broken items keep a visible red sliver
 
