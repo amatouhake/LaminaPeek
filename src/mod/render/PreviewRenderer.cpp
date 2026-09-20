@@ -1,21 +1,26 @@
-#include "mod/render/PreviewRenderer.h"
+﻿#include "mod/render/PreviewRenderer.h"
 
 #include "mod/LaminaPeek.h"
 #include "mod/preview/ContainerPreview.h"
 #include "mod/render/PreviewLayout.h"
 
 #include "mc/client/game/IClientInstance.h"
+#include "mc/client/game/IMinecraftGame.h"
 #include "mc/client/gui/CaretMeasureData.h"
 #include "mc/client/gui/Font.h"
 #include "mc/client/gui/FontHandle.h"
+#include "mc/client/gui/FontRepository.h"
 #include "mc/client/gui/TextAlignment.h"
 #include "mc/client/gui/TextMeasureData.h"
+#include "mc/client/gui/controls/MeasureResult.h"
+#include "mc/client/gui/controls/UIMeasureStrategy.h"
 #include "mc/client/gui/screens/ScreenView.h"
 #include "mc/client/renderer/BaseActorRenderContext.h"
 #include "mc/client/renderer/actor/ItemRenderer.h"
 #include "mc/client/renderer/screen/MinecraftUIRenderContext.h"
 #include "mc/deps/core/math/Color.h"
 #include "mc/deps/core/string/HashedString.h"
+#include "mc/deps/core/utility/NonOwnerPointer.h"
 #include "mc/deps/input/RectangleArea.h"
 
 #include <chrono>
@@ -37,8 +42,6 @@ constexpr mce::Color kWhite{1.0f, 1.0f, 1.0f, 1.0f};
 
 constexpr float kFrameAlpha = 0.92f;
 constexpr float kSlotAlpha  = 1.0f;
-constexpr float kCountFont  = 1.0f;
-constexpr float kCountLineH = 10.0f; // approx. glyph height at font scale 1
 constexpr int   kItemZOrder = 17;
 
 // The glint overlay from renderGuiItemNew(foil = true) blends additively and,
@@ -49,6 +52,12 @@ constexpr int kGlintPasses = 3;
 // UI's 20 Hz animation clock.
 constexpr auto kGlintFramePeriod = std::chrono::milliseconds(50);
 
+// Vanilla's stack count is a plain UI label ("font_size": "normal", shadow,
+// anchored bottom-right of the 18x18 slot panel with offset [0, 1]); see
+// common.stack_count_label in the vanilla ui_common.json. Mirror those values.
+constexpr float kCountFontSize     = 1.0f;
+constexpr float kCountOffsetY      = 1.0f;
+constexpr int   kCountMeasureLimit = 1000; // no wrapping/clipping for a few digits
 
 RectangleArea toArea(Rect const& r) { return RectangleArea{r.x0, r.x1, r.y0, r.y1}; }
 
@@ -132,26 +141,35 @@ void PreviewRenderer::render(
         }
     }
 
-    // 3. Stack counts, bottom-right of the cell like vanilla slots.
-    auto const& fontHandle = client.getFontHandle();
+    // 3. Stack counts, laid out like vanilla's stack_count_label: the font a
+    //    "default" UI label resolves to (locale and font overrides included),
+    //    measured by the UI's own strategy, anchored bottom-right of the cell.
+    auto const& fontHandle = client.getMinecraftGame_DEPRECATED().getFontRepository()->getFontFromFontType("default");
     Font&       font       = fontHandle.getFont();
-    bool        anyText    = false;
+    Bedrock::NotNullNonOwnerPtr<FontHandle const> const fontRef{Bedrock::NonOwnerPointer<FontHandle const>{fontHandle}};
+    TextMeasureData const  textData{kCountFontSize, 0.0f, true, false, false, ui::TextAlignment::Right};
+    CaretMeasureData const caretData{-1, false};
+    auto&                  measure = context.getMeasureStrategy();
+    bool                   anyText = false;
     for (int slot = 0; slot < preview.slotCount(); ++slot) {
         ItemStack const& stack = preview.slots[static_cast<size_t>(slot)];
         if (stack.isNull() || stack.mCount <= 1) {
             continue;
         }
+        std::string     text = std::to_string(static_cast<int>(stack.mCount));
+        glm::vec2 const size =
+            measure.measureText(fontRef, text, kCountMeasureLimit, kCountMeasureLimit, textData, caretData).mSize;
         Rect const cell = layout.cell(slot);
-        Rect const textRect{cell.x0, cell.y1 - kCountLineH, cell.x1 - 1.0f, cell.y1};
+        Rect const textRect{cell.x1 - size.x, cell.y1 + kCountOffsetY - size.y, cell.x1, cell.y1 + kCountOffsetY};
         context.drawText(
             font,
             toArea(textRect),
-            std::to_string(static_cast<int>(stack.mCount)),
+            std::move(text),
             kCountText,
             1.0f,
             ui::TextAlignment::Right,
-            TextMeasureData{kCountFont, 0.0f, true, false, false, ui::TextAlignment::Right},
-            CaretMeasureData{-1, false}
+            textData,
+            caretData
         );
         anyText = true;
     }
