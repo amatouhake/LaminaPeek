@@ -1,6 +1,7 @@
 #include "mod/LaminaPeek.h"
 
 #include "mod/hover/HoverTracker.h"
+#include "mod/preview/ShulkerTooltipSuppressor.h"
 
 #include "ll/api/Config.h"
 #include "ll/api/event/EventBus.h"
@@ -59,6 +60,7 @@ bool LaminaPeek::load() {
 bool LaminaPeek::enable() {
     getSelf().getLogger().debug("Enabling...");
     hover::HoverTracker::getInstance().install();
+    preview::ShulkerTooltipSuppressor::getInstance().install();
     mUIRenderListener = ll::event::EventBus::getInstance().emplaceListener<ll::event::AfterUIRenderEvent>(
         [this](ll::event::AfterUIRenderEvent& event) { onAfterUIRender(event); }
     );
@@ -75,6 +77,7 @@ bool LaminaPeek::disable() {
         ll::event::EventBus::getInstance().removeListener(mUIRenderListener);
         mUIRenderListener.reset();
     }
+    preview::ShulkerTooltipSuppressor::getInstance().uninstall();
     hover::HoverTracker::getInstance().uninstall();
     mPreviewCache.clear();
     return true;
