@@ -33,24 +33,32 @@ struct PreviewLayout {
     [[nodiscard]] static constexpr float frameWidth(int columns) { return columns * kCellSize + 2 * kPadding; }
     [[nodiscard]] static constexpr float frameHeight(int rows) { return rows * kCellSize + 2 * kPadding; }
 
-    /// Places the frame above-right of `anchor` (the pointer). If it would run
-    /// off the top of the screen it goes below-right instead, and it is always
-    /// clamped horizontally into the screen. The vanilla hover text is drawn
-    /// below-right of the pointer, so preferring "above" keeps the two apart.
+    /// Places the frame above-right of `anchor` (the pointer). When it would
+    /// run off the right edge it goes to the left of the pointer instead, and
+    /// when it would run off the top it goes below; clamping into the screen
+    /// is only the last resort when neither side has room. The vanilla hover
+    /// text is drawn below-right of the pointer, so preferring "above" keeps
+    /// the two apart.
     [[nodiscard]] static constexpr PreviewLayout
     anchored(int columns, int rows, float anchorX, float anchorY, float screenWidth, float screenHeight) {
         float const width  = frameWidth(columns);
         float const height = frameHeight(rows);
 
         float x = anchorX + kGap;
-        x       = std::min(x, screenWidth - width);
-        x       = std::max(x, 0.0f);
+        if (x + width > screenWidth) {
+            x = anchorX - kGap - width;
+        }
+        if (x < 0.0f) {
+            x = std::max(0.0f, std::min(anchorX + kGap, screenWidth - width));
+        }
 
         float y = anchorY - kGap - height;
         if (y < 0.0f) {
             y = anchorY + kGap;
         }
-        y = std::min(y, std::max(screenHeight - height, 0.0f));
+        if (y + height > screenHeight) {
+            y = std::max(0.0f, screenHeight - height);
+        }
 
         return PreviewLayout{
             columns,

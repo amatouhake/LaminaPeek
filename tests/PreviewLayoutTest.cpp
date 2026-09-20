@@ -46,15 +46,29 @@ void testFallsBelowWhenNoRoomAbove() {
     CHECK_RECT(layout.frame, 108.0f, 38.0f, 278.0f, 100.0f);
 }
 
-void testClampsToRightEdge() {
+void testFlipsToLeftOfPointerNearRightEdge() {
     auto const layout = PreviewLayout::anchored(9, 3, 390.0f, 200.0f, 400.0f, 300.0f);
-    CHECK(near(layout.frame.x1, 400.0f));
-    CHECK(near(layout.frame.x0, 230.0f));
+    // Right edge of the frame sits 8 units left of the pointer; pointer stays outside.
+    CHECK(near(layout.frame.x1, 382.0f));
+    CHECK(near(layout.frame.x0, 212.0f));
 }
 
-void testClampsToLeftEdgeWhenScreenIsNarrow() {
+void testStaysRightWhenItJustFits() {
+    auto const layout = PreviewLayout::anchored(9, 3, 222.0f, 200.0f, 400.0f, 300.0f);
+    CHECK_RECT(layout.frame, 230.0f, 130.0f, 400.0f, 192.0f);
+}
+
+void testClampsOnlyWhenNeitherSideFits() {
+    // Screen too narrow for the frame on either side of the pointer.
     auto const layout = PreviewLayout::anchored(9, 3, 50.0f, 200.0f, 100.0f, 300.0f);
     CHECK(near(layout.frame.x0, 0.0f));
+    CHECK(near(layout.frame.x1, 170.0f));
+}
+
+void testFlipsLeftWhenPointerIsAtTheVeryRightEdge() {
+    auto const layout = PreviewLayout::anchored(9, 3, 640.0f, 100.0f, 640.0f, 337.0f);
+    CHECK(near(layout.frame.x1, 632.0f));
+    CHECK(layout.frame.x0 >= 0.0f);
 }
 
 void testClampsToBottomEdge() {
@@ -96,8 +110,10 @@ int main() {
     testFrameSize();
     testAnchorsAboveRightWhenThereIsRoom();
     testFallsBelowWhenNoRoomAbove();
-    testClampsToRightEdge();
-    testClampsToLeftEdgeWhenScreenIsNarrow();
+    testFlipsToLeftOfPointerNearRightEdge();
+    testStaysRightWhenItJustFits();
+    testClampsOnlyWhenNeitherSideFits();
+    testFlipsLeftWhenPointerIsAtTheVeryRightEdge();
     testClampsToBottomEdge();
     testCellsFollowRowMajorSlotOrder();
     testIconIsCentredInCell();
