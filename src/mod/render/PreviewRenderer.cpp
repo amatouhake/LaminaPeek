@@ -2,6 +2,7 @@
 
 #include "mod/LaminaPeek.h"
 #include "mod/preview/ContainerPreview.h"
+#include "mod/render/DurabilityBar.h"
 #include "mod/render/PreviewLayout.h"
 
 #include "mc/client/game/IClientInstance.h"
@@ -40,6 +41,7 @@ constexpr mce::Color kFrameBorder{0.55f, 0.35f, 0.70f, 1.0f};
 constexpr mce::Color kSlotBackground{0.23f, 0.23f, 0.23f, 1.0f};
 constexpr mce::Color kCountText{1.0f, 1.0f, 1.0f, 1.0f};
 constexpr mce::Color kWhite{1.0f, 1.0f, 1.0f, 1.0f};
+constexpr mce::Color kDurabilityBackground{0.0f, 0.0f, 0.0f, 1.0f};
 
 constexpr float kFrameAlpha = 0.92f;
 constexpr float kSlotAlpha  = 1.0f;
@@ -155,7 +157,34 @@ void PreviewRenderer::render(
         }
     }
 
-    // 3. Stack counts, laid out like vanilla's stack_count_label: the font a
+    // 3. Durability bars, drawn after the icons and glint (as in vanilla, the
+    //    overlay sits on top of the sprite) but before the stack counts, so
+    //    counts stay legible. Uses the stack's own damageable/damaged/max-damage
+    //    state directly: no NBT decode or ItemStack rebuild in the render loop,
+    //    just a few tiny rectangles for <=27 slots.
+    for (int slot = 0; slot < preview.slotCount(); ++slot) {
+        ItemStack const& stack = preview.slots[static_cast<size_t>(slot)];
+        if (stack.isNull() || !stack.mItem) {
+            continue;
+        }
+        int const maxDamage = static_cast<int>(stack.mItem->getMaxDamage());
+        if (!shouldShowDurabilityBar(stack.isDamageableItem(), stack.getDamageValue(), maxDamage)) {
+            continue;
+        }
+        float const         ratio      = durabilityRatio(stack.getDamageValue(), maxDamage);
+        Rect const          background = durabilityBackground(layout.icon(slot));
+        Rect const          foreground = durabilityForeground(background, ratio);
+        DurabilityRgb const rgb        = durabilityColor(ratio);
+        context.fillRectangle(toArea(background), kDurabilityBackground, kSlotAlpha);
+        // The background stays unconditional so a nearly-broken item still
+        // shows the black strip; the fill rounds to zero width below 1/24
+        // remaining, as in the vanilla slot.
+        if (foreground.width() > 0.0f) {
+            context.fillRectangle(toArea(foreground), mce::Color{rgb.r, rgb.g, rgb.b, 1.0f}, kSlotAlpha);
+        }
+    }
+    context.flushImages(kWhite, 1.0f, kFillMaterial);
+    // 4. Stack counts, laid out like vanilla's stack_count_label: the font a
     //    "default" UI label resolves to (locale and font overrides included),
     //    measured by the UI's own strategy, anchored bottom-right of the cell.
     auto const& fontHandle = client.getMinecraftGame_DEPRECATED().getFontRepository()->getFontFromFontType("default");
