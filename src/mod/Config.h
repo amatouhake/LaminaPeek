@@ -20,6 +20,14 @@ struct Config {
         /// hover text; name, custom name, lore and other lines are kept.
         bool disableVanillaContentsPreview = true;
     } shulker;
+
+    struct Bundle {
+        /// Master switch for the Bundle preview. When false LaminaPeek draws
+        /// no Bundle preview and leaves vanilla behaviour untouched.
+        bool enabled = true;
+        /// Draw the grid even when the Bundle holds no items.
+        bool showEmpty = false;
+    } bundle;
 };
 
 } // namespace lamina_peek

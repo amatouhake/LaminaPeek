@@ -56,10 +56,12 @@ bool LaminaPeek::load() {
         mConfig = Config{};
     }
     getSelf().getLogger().debug(
-        "Config: shulker.enabled={} showEmpty={} disableVanillaContentsPreview={}",
+        "Config: shulker.enabled={} showEmpty={} disableVanillaContentsPreview={} bundle.enabled={} showEmpty={}",
         mConfig.shulker.enabled,
         mConfig.shulker.showEmpty,
-        mConfig.shulker.disableVanillaContentsPreview
+        mConfig.shulker.disableVanillaContentsPreview,
+        mConfig.bundle.enabled,
+        mConfig.bundle.showEmpty
     );
     return true;
 }
@@ -174,16 +176,31 @@ void LaminaPeek::onAfterUIRender(ll::event::AfterUIRenderEvent& event) {
         }
     } perfScope{*controller, perfStart, rendered};
 #endif
-    if (!mConfig.shulker.enabled) {
-        return;
-    }
     auto const* preview = mPreviewCache.resolve(*controller);
     if (!preview) {
         return;
     }
+    // The cache may hold a Shulker or a Bundle preview; each family has its
+    // own master switch and empty-grid setting. Gating here (rather than in
+    // the providers) keeps extraction read-only and lets hover-switching fall
+    // through to the next frame's re-extraction with no stale preview: a
+    // disabled family simply never draws. The family is stamped by the
+    // extracting provider, never inferred from grid shape.
+    bool showEmpty = false;
+    if (preview->family == preview::ContainerPreview::Family::Shulker) {
+        if (!mConfig.shulker.enabled) {
+            return;
+        }
+        showEmpty = mConfig.shulker.showEmpty;
+    } else {
+        if (!mConfig.bundle.enabled) {
+            return;
+        }
+        showEmpty = mConfig.bundle.showEmpty;
+    }
     // An empty container has nothing useful to show unless the user asked
     // for the grid anyway.
-    if (preview->filledSlotCount() == 0 && !mConfig.shulker.showEmpty) {
+    if (preview->filledSlotCount() == 0 && !showEmpty) {
         return;
     }
 #ifdef LAMINAPEEK_TRACE

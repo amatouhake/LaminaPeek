@@ -74,7 +74,13 @@ void PreviewRenderer::render(
     MinecraftUIRenderContext&        context,
     preview::ContainerPreview const& preview
 ) {
-    if (preview.columns <= 0 || preview.rows <= 0 || preview.slots.size() < static_cast<size_t>(preview.slotCount())) {
+    if (preview.columns <= 0 || preview.rows <= 0) {
+        // Defensive only: providers report a real frame even for empty
+        // containers (Bundle: minimal 3x1, Shulker: fixed 9x3), so a 0x0 grid
+        // only arises from a malformed preview and has no frame to anchor.
+        return;
+    }
+    if (preview.slots.size() < static_cast<size_t>(preview.slotCount())) {
         return;
     }
 

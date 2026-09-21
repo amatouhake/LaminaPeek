@@ -4,6 +4,7 @@
 
 #include <optional>
 
+class ContainerScreenController;
 class ItemStackBase;
 
 namespace lamina_peek::preview {
@@ -23,7 +24,11 @@ public:
 
     /// Builds the preview for a supported item. Returns std::nullopt if the
     /// item is not supported or its data cannot be interpreted safely.
-    [[nodiscard]] virtual std::optional<ContainerPreview> extract(ItemStackBase const& item) const = 0;
+    /// `controller` is the container screen the item is hovered in (may be
+    /// null); providers whose contents live outside the item's own data
+    /// (Bundles) resolve them through it.
+    [[nodiscard]] virtual std::optional<ContainerPreview>
+    extract(ItemStackBase const& item, ContainerScreenController const* controller) const = 0;
 };
 
 } // namespace lamina_peek::preview

@@ -6,16 +6,23 @@
 
 namespace lamina_peek::preview {
 
-/// The data needed to draw a preview of a container-like item: a fixed grid of
+/// The data needed to draw a preview of a container-like item: a grid of
 /// slots, each holding the item stored there (or a null stack when empty).
 ///
-/// The layout mirrors the real container so that slot `row * columns + col`
-/// is rendered at that grid position, including gaps left by empty slots.
+/// Shulker Boxes mirror the real container, so slot `row * columns + col` is
+/// rendered at that grid position including gaps; Bundles pack their entries
+/// in slot order into a dynamic grid instead.
 struct ContainerPreview {
+    /// Which item family the preview was extracted from, stamped by the
+    /// extracting provider. Grid shape alone cannot identify the family, so
+    /// the render layer gates per-family config on this field.
+    enum class Family { Shulker, Bundle };
+
+    Family                 family{Family::Shulker};
     int                    columns{0};
     int                    rows{0};
     std::vector<ItemStack> slots;               // size == rows * columns; null stacks for empty slots
-    int                    skippedSlotCount{0}; // entries that could not be decoded and were left empty
+    int                    skippedSlotCount{0}; // entries that could not be decoded and were omitted from the grid
 
     [[nodiscard]] int slotCount() const { return rows * columns; }
 

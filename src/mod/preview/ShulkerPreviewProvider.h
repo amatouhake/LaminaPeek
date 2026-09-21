@@ -20,7 +20,8 @@ public:
 
     [[nodiscard]] bool supports(ItemStackBase const& item) const override;
 
-    [[nodiscard]] std::optional<ContainerPreview> extract(ItemStackBase const& item) const override;
+    [[nodiscard]] std::optional<ContainerPreview>
+    extract(ItemStackBase const& item, ContainerScreenController const* controller) const override;
 };
 
 } // namespace lamina_peek::preview
