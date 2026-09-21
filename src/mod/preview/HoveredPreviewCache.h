@@ -9,6 +9,7 @@
 #include <optional>
 
 class CompoundTag;
+class ContainerScreenController;
 class ItemStackBase;
 class ScreenController;
 
@@ -45,9 +46,10 @@ private:
         bool operator==(Key const&) const = default;
     };
 
-    [[nodiscard]] Key makeKey(ItemStackBase const& item);
+    [[nodiscard]] Key makeKey(ItemStackBase const& item, ContainerScreenController const* controller);
 
-    [[nodiscard]] std::optional<ContainerPreview> extract(ItemStackBase const& item);
+    [[nodiscard]] std::optional<ContainerPreview>
+    extract(ItemStackBase const& item, ContainerScreenController const* controller);
 
     ShulkerPreviewProvider                mShulkerProvider;
     BundlePreviewProvider                 mBundleProvider;

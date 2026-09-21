@@ -37,8 +37,10 @@ Three concerns are kept apart so that more item types can be added later:
   own `ContainerScreenController` hover callbacks.
 * `src/mod/preview/` turns a supported item into a `ContainerPreview` grid
   through a small `PreviewProvider` boundary (`ShulkerPreviewProvider` reads
-  the `Items` list from the item's NBT; `BundlePreviewProvider` reads the
-  same list and packs it into a bounded dynamic grid).
+  the `Items` list from the item's NBT; `BundlePreviewProvider` walks the
+  Bundle's live dynamic container through `BundleHelper::getItemStackFromBundle`
+  — the item's own NBT holds only a `bundle_id` — and packs the stacks into a
+  bounded dynamic grid).
 * `src/mod/render/` draws a `ContainerPreview` on top of the container screen
   from LeviLamina's `AfterUIRenderEvent`.
 

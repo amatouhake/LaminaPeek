@@ -3,6 +3,7 @@
 #include "mod/LaminaPeek.h"
 #include "mod/hover/HoverTracker.h"
 
+#include "mc/client/gui/screens/controllers/BundleHelper.h"
 #include "mc/deps/nbt/CompoundTag.h"
 #include "mc/deps/nbt/ListTag.h"
 #include "mc/deps/nbt/Tag.h"
@@ -23,11 +24,25 @@ namespace {
 // when the item carries no Bundle content list (empty Bundle): stable across
 // identical empties. Shulker Boxes skip this (their static contents change
 // only with a new user-data object, caught by the pointer key).
-uint64_t fingerprintBundleContent(ItemStackBase const& item) {
+uint64_t fingerprintBundleContent(ItemStackBase const& item, ContainerScreenController const* controller) {
     auto const* userData = item.mUserData.get();
     uint64_t    fingerprint = 0;
     uint64_t    entryCount  = 0;
-    if (userData) {
+    if (controller) {
+        // Live contents (the confirmed 26.51.3 data path, see
+        // BundlePreviewProvider): index/id/aux/count of every non-null stack
+        // the game's own Bundle UI would read. Reference access only — no
+        // stack copies, no registry work.
+        for (int index = 0; index < BundleGrid::kMaxSlots; ++index) {
+            ItemStack const& stack = BundleHelper::getItemStackFromBundle(*controller, item, index);
+            if (stack.isNull()) {
+                continue;
+            }
+            ++entryCount;
+            fingerprint = fingerprintBundleLiveEntry(fingerprint, index, stack.getId(), stack.mAuxValue, stack.mCount);
+        }
+    }
+    if (entryCount == 0 && userData) {
         auto itemsIt = userData->mTags.find("Items");
         if (itemsIt != userData->mTags.end() && itemsIt->second.is_array()) {
             for (auto const& entryPtr : itemsIt->second.get<ListTag>()) {
@@ -73,7 +88,8 @@ uint64_t fingerprintBundleContent(ItemStackBase const& item) {
 
 } // namespace
 
-HoveredPreviewCache::Key HoveredPreviewCache::makeKey(ItemStackBase const& item) {
+HoveredPreviewCache::Key
+HoveredPreviewCache::makeKey(ItemStackBase const& item, ContainerScreenController const* controller) {
     Key key;
     key.stack    = &item;
     key.userData = item.mUserData.get();
@@ -85,7 +101,7 @@ HoveredPreviewCache::Key HoveredPreviewCache::makeKey(ItemStackBase const& item)
     // The predicate is the production one (no duplication).
     if (isBundleTypeName(item.getTypeName())) {
         try {
-            key.contentFingerprint = fingerprintBundleContent(item);
+            key.contentFingerprint = fingerprintBundleContent(item, controller);
         } catch (...) {
             key.contentFingerprint = 0;
         }
@@ -100,10 +116,15 @@ ContainerPreview const* HoveredPreviewCache::resolve(ScreenController const& con
         return nullptr;
     }
 
-    Key const key = makeKey(*item);
+    // The hovered slot's own controller (validated by resolveItem to be the
+    // one being rendered) gives Bundle providers access to the live contents.
+    auto const& hovered = hover::HoverTracker::getInstance().current();
+    ContainerScreenController const* container = hovered ? hovered->controller : nullptr;
+
+    Key const key = makeKey(*item, container);
     if (!mKey || *mKey != key) {
         mKey     = key;
-        mPreview = extract(*item);
+        mPreview = extract(*item, container);
         if (!mPreview) {
             LaminaPeek::getInstance().getSelf().getLogger().debug(
                 "Hovered '{}' x{} (userData: {}) - not previewable",
@@ -136,13 +157,14 @@ void HoveredPreviewCache::clear() {
     mPreview.reset();
 }
 
-std::optional<ContainerPreview> HoveredPreviewCache::extract(ItemStackBase const& item) {
+std::optional<ContainerPreview>
+HoveredPreviewCache::extract(ItemStackBase const& item, ContainerScreenController const* controller) {
     for (auto const* provider : mProviders) {
         if (!provider->supports(item)) {
             continue;
         }
         try {
-            return provider->extract(item);
+            return provider->extract(item, controller);
         } catch (...) {
             // Malformed item data must never take the game down. Report once
             // and treat the item as not previewable.

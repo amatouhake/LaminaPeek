@@ -34,7 +34,8 @@ bool ShulkerPreviewProvider::supports(ItemStackBase const& item) const {
     return item.getTypeName().ends_with(kNameSuffix);
 }
 
-std::optional<ContainerPreview> ShulkerPreviewProvider::extract(ItemStackBase const& item) const {
+std::optional<ContainerPreview>
+ShulkerPreviewProvider::extract(ItemStackBase const& item, ContainerScreenController const* /*controller*/) const {
     if (!supports(item)) {
         return std::nullopt;
     }

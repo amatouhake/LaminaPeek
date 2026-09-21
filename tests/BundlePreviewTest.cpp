@@ -11,6 +11,7 @@
 using lamina_peek::preview::BundleGrid;
 using lamina_peek::preview::fingerprintBundleEntry;
 using lamina_peek::preview::fingerprintBundleFinal;
+using lamina_peek::preview::fingerprintBundleLiveEntry;
 using lamina_peek::preview::isBundleTypeName;
 using lamina_peek::preview::kBundleFingerprintNoSlot;
 using lamina_peek::preview::kBundleFingerprintNullHash;
@@ -134,6 +135,21 @@ void testFingerprintIsOrderAndContentSensitive() {
     CHECK(fingerprintBundleFinal(0, 1, 0, 1, 0) == fingerprintBundleFinal(0, 1, 0, 1, 0));
 }
 
+void testLiveFingerprintIsIndexAndStackSensitive() {
+    // The live (dynamic-container) entry mixer used on 26.51.3: same inputs
+    // hash identically, any field change (index, id, aux, count) changes it,
+    // and chaining is order-sensitive.
+    uint64_t const a = fingerprintBundleLiveEntry(0, 0, 10, 0, 1);
+    CHECK(a == fingerprintBundleLiveEntry(0, 0, 10, 0, 1) && a != 0);
+    CHECK(fingerprintBundleLiveEntry(0, 1, 10, 0, 1) != a); // index change
+    CHECK(fingerprintBundleLiveEntry(0, 0, 11, 0, 1) != a); // id change
+    CHECK(fingerprintBundleLiveEntry(0, 0, 10, 1, 1) != a); // aux change
+    CHECK(fingerprintBundleLiveEntry(0, 0, 10, 0, 2) != a); // count change
+    uint64_t const ab = fingerprintBundleLiveEntry(a, 1, 20, 0, 1);
+    uint64_t const ba = fingerprintBundleLiveEntry(fingerprintBundleLiveEntry(0, 1, 20, 0, 1), 0, 10, 0, 1);
+    CHECK(ab != ba);
+}
+
 } // namespace
 
 int runBundlePreviewTests() {
@@ -144,6 +160,7 @@ int runBundlePreviewTests() {
     testEveryShapeHoldsItsEntries();
     testLargeGridFitsOrdinaryScreens();
     testFingerprintIsOrderAndContentSensitive();
+    testLiveFingerprintIsIndexAndStackSensitive();
     if (gFailures == 0) {
         std::printf("BundlePreview tests: all passed\n");
     } else {

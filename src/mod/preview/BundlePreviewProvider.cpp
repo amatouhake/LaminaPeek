@@ -1,5 +1,6 @@
 #include "mod/preview/BundlePreviewProvider.h"
 
+#include "mc/client/gui/screens/controllers/BundleHelper.h"
 #include "mc/deps/nbt/CompoundTag.h"
 #include "mc/deps/nbt/ListTag.h"
 #include "mc/deps/nbt/Tag.h"
@@ -61,90 +62,111 @@ bool BundlePreviewProvider::supports(ItemStackBase const& item) const {
     return isBundleTypeName(item.getTypeName());
 }
 
-std::optional<ContainerPreview> BundlePreviewProvider::extract(ItemStackBase const& item) const {
+std::optional<ContainerPreview>
+BundlePreviewProvider::extract(ItemStackBase const& item, ContainerScreenController const* controller) const {
     if (!supports(item)) {
         return std::nullopt;
     }
 
-    // No user data (or no "Items" list) simply means an empty Bundle: report
-    // the minimal 3x1 frame so `bundle.showEmpty` has something to draw, and
-    // let the render layer decide (it skips empty grids unless asked).
-    auto const* userData = item.mUserData.get();
-    if (!userData) {
-        auto preview   = ContainerPreview::empty(BundleGrid::kEmptyColumns, BundleGrid::kEmptyRows);
-        preview.family = ContainerPreview::Family::Bundle;
-        return preview;
-    }
-#ifdef LAMINAPEEK_TRACE
-    logBundleNbtKeys(*userData);
-#endif
-    auto itemsIt = userData->mTags.find(kItemsKey);
-    if (itemsIt == userData->mTags.end() || !itemsIt->second.is_array()) {
-        auto preview   = ContainerPreview::empty(BundleGrid::kEmptyColumns, BundleGrid::kEmptyRows);
-        preview.family = ContainerPreview::Family::Bundle;
-        return preview;
-    }
-    // First pass: decode every entry into its stored slot. Entries are keyed
-    // by Slot (container slot index, shared with the Shulker/box-entity save
-    // format) rather than list order, so a reordered or sparse list still maps
-    // each stack to the slot the game means. Anything undecodable is counted
-    // as skipped, never drawn. There is no arbitrary cap: Bedrock storage
-    // items support up to 64 dynamic slots and every real entry is retained.
     struct DecodedEntry {
         int       slot;
         ItemStack stack;
     };
     std::vector<DecodedEntry> decoded;
     int                       skipped = 0;
-    for (auto const& entryPtr : itemsIt->second.get<ListTag>()) {
-        if (!entryPtr || entryPtr->getId() != Tag::Type::Compound) {
-            ++skipped;
-            continue;
-        }
-        auto const& entry = entryPtr->as<CompoundTag>();
+#ifdef LAMINAPEEK_TRACE
+    char const* source = "none";
+#endif
 
-        int const slot = readSlotIndex(entry);
-        if (slot < 0 || slot >= BundleGrid::kMaxSlots) {
-            ++skipped;
-            continue;
-        }
-
-        // fromTag resolves the item by name through the client's item
-        // registry and yields a null stack for unknown or malformed entries.
-        // Allowed here: extract runs only on cache-key change, never per
-        // frame. A single entry that throws must not take the rest of the
-        // Bundle with it, so the failure is contained to its entry.
-        try {
-            ItemStack stack = ItemStack::fromTag(entry);
+    // Authoritative path (confirmed in-game on 1.26.51 / LeviLamina 26.51.3):
+    // the hovered Bundle's own NBT holds only a `bundle_id` reference; the
+    // contents live in the client's dynamic container for that id, which the
+    // game's own Bundle UI reads through BundleHelper::getItemStackFromBundle
+    // with the hovered slot's ContainerScreenController. Walk every container index
+    // (Bedrock storage items hold up to 64) and keep the non-null stacks; the
+    // helper yields the empty stack for unused or out-of-range indices.
+    if (controller) {
+#ifdef LAMINAPEEK_TRACE
+        source = "dynamic-container";
+#endif
+        for (int index = 0; index < BundleGrid::kMaxSlots; ++index) {
+            ItemStack const& stack = BundleHelper::getItemStackFromBundle(*controller, item, index);
             if (stack.isNull()) {
-                ++skipped;
                 continue;
             }
-            decoded.push_back(DecodedEntry{slot, std::move(stack)});
-        } catch (...) {
-            ++skipped;
+            decoded.push_back(DecodedEntry{index, ItemStack(stack)});
+        }
+    }
+
+    // Fallback: a Bundle whose contents were flattened into its own NBT as an
+    // `Items` list (entries keyed by `Slot`, the Shulker/box-entity save
+    // format). Only used when the live container path yielded nothing.
+    auto const* userData = item.mUserData.get();
+    if (decoded.empty() && userData) {
+#ifdef LAMINAPEEK_TRACE
+        logBundleNbtKeys(*userData);
+#endif
+        auto itemsIt = userData->mTags.find(kItemsKey);
+        if (itemsIt != userData->mTags.end() && itemsIt->second.is_array()) {
+#ifdef LAMINAPEEK_TRACE
+            source = "nbt-items";
+#endif
+            for (auto const& entryPtr : itemsIt->second.get<ListTag>()) {
+                if (!entryPtr || entryPtr->getId() != Tag::Type::Compound) {
+                    ++skipped;
+                    continue;
+                }
+                auto const& entry = entryPtr->as<CompoundTag>();
+
+                int const slot = readSlotIndex(entry);
+                if (slot < 0 || slot >= BundleGrid::kMaxSlots) {
+                    ++skipped;
+                    continue;
+                }
+
+                // fromTag resolves the item by name through the client's item
+                // registry and yields a null stack for unknown or malformed
+                // entries. Allowed here: extract runs only on cache-key
+                // change, never per frame. A single entry that throws must
+                // not take the rest of the Bundle with it.
+                try {
+                    ItemStack stack = ItemStack::fromTag(entry);
+                    if (stack.isNull()) {
+                        ++skipped;
+                        continue;
+                    }
+                    decoded.push_back(DecodedEntry{slot, std::move(stack)});
+                } catch (...) {
+                    ++skipped;
+                }
+            }
         }
     }
 
     if (decoded.empty()) {
+        // Empty Bundle (or nothing decodable): report the minimal 3x1 frame so
+        // `bundle.showEmpty` has something to draw, and let the render layer
+        // decide (it skips empty grids unless asked).
         auto preview             = ContainerPreview::empty(BundleGrid::kEmptyColumns, BundleGrid::kEmptyRows);
         preview.family           = ContainerPreview::Family::Bundle;
         preview.skippedSlotCount = skipped;
 #ifdef LAMINAPEEK_TRACE
-        // Fully-undecodable Bundles still log so the trace shows entries=0
-        // with the real skipped count instead of going silent.
-        LaminaPeek::getInstance().getSelf().getLogger().debug("Bundle extract: entries=0 skipped={} grid=3x1", skipped);
+        LaminaPeek::getInstance().getSelf().getLogger().debug(
+            "Bundle extract: source={} entries=0 skipped={} grid=3x1",
+            source,
+            skipped
+        );
 #endif
         return preview;
     }
 
-    // Second pass: pack in slot order into the dynamic grid. Sorting by stored
-    // slot keeps insertion-adjacent items adjacent on screen, and compacting
-    // drops the sparse gaps a fixed grid would draw as holes. Duplicate Slot
-    // values can push decoded past kMaxSlots even though each index is in
-    // range, so truncate to the cap (folding the tail into skipped) BEFORE
-    // sizing the grid: shapeFor clamps, but the pack loop must never write
-    // more entries than the grid holds.
+    // Pack in slot order into the dynamic grid. Sorting by stored slot keeps
+    // insertion-adjacent items adjacent on screen, and compacting drops the
+    // sparse gaps a fixed grid would draw as holes. Duplicate Slot values in
+    // the NBT fallback can push decoded past kMaxSlots even though each index
+    // is in range, so truncate to the cap (folding the tail into skipped)
+    // BEFORE sizing the grid: shapeFor clamps, but the pack loop must never
+    // write more entries than the grid holds.
     std::sort(decoded.begin(), decoded.end(), [](DecodedEntry const& a, DecodedEntry const& b) {
         return a.slot < b.slot;
     });
@@ -162,7 +184,8 @@ std::optional<ContainerPreview> BundlePreviewProvider::extract(ItemStackBase con
     preview.skippedSlotCount = skipped;
 #ifdef LAMINAPEEK_TRACE
     LaminaPeek::getInstance().getSelf().getLogger().debug(
-        "Bundle extract: entries={} skipped={} grid={}x{}",
+        "Bundle extract: source={} entries={} skipped={} grid={}x{}",
+        source,
         decoded.size(),
         skipped,
         grid.columns,
