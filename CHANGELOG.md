@@ -10,10 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Bundle preview: hovering a Bundle (any colour) in the player inventory, a
-  Chest or an Ender Chest shows every stored stack as a compact dynamic grid
-  (3–4 columns, bounded at 16 entries) with item icons and real counts,
-  including the tail vanilla's tooltip truncates. Read-only: vanilla
-  selection, scroll, insertion and removal are untouched.
+  Chest or an Ender Chest shows every stored stack as a dynamic grid (3
+  columns for small Bundles, up to 8×8 for 64 entries) with item icons and
+  real counts, including the tail vanilla's tooltip truncates past
+  `num_viewable_slots`. Read-only: vanilla selection, scroll, insertion and
+  removal are untouched; in-place Bundle edits re-extract via a content
+  fingerprint (Shulker path unchanged).
 - `config.json` gains a `bundle` section (`bundle.enabled`,
   `bundle.showEmpty`); an empty Bundle draws its minimal 3×1 frame only when
   `showEmpty` is set, and shows nothing otherwise.

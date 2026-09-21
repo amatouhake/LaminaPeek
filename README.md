@@ -21,10 +21,11 @@ never modifies inventories, sends transactions, or alters packets.
 * Its contents are shown immediately as a 9×3 grid (item icons and stack
   counts), preserving the real slot layout.
 * Hover a **Bundle** (any colour, including undyed) in the same screens. Its
-  contents are shown as a compact dynamic grid (3–4 columns, at most 4 rows
-  for 16 entries): every stored stack is drawn, including the tail vanilla's
-  tooltip truncates, with real counts. The preview is read-only: vanilla
-  selection, scroll position and insertion/removal are untouched.
+  contents are shown as a dynamic grid (3 columns for small Bundles, widening
+  to 8×8 for a full 64-entry Bundle): every stored stack is drawn, including
+  the tail vanilla's tooltip truncates past `num_viewable_slots` (12), with
+  real counts. The preview is read-only: vanilla selection, scroll position
+  and insertion/removal are untouched.
 * No keybind is required; moving the cursor between items updates the
   preview instantly, with no stale preview left behind.
 

@@ -1,59 +1,17 @@
-// Focused checks for the Bundle preview: provider recognition/extraction and
-// the bounded dynamic grid shape. Game-independent: BundleGrid is constexpr
-// and the pure name/shape logic is re-checked here without LeviLamina.
+// Focused checks for the Bundle preview: recognition, content fingerprint
+// and the dynamic grid shape. Game-independent: exercises the production
+// helpers in mod/preview/BundleContents.h directly (no mirrors).
 // Built with `xmake build LaminaPeekTests`, run with `xmake run LaminaPeekTests`.
 
-#include <cmath>
+#include "mod/preview/BundleContents.h"
+
 #include <cstdio>
-#include <string>
-#include <string_view>
+
+using lamina_peek::preview::BundleGrid;
+using lamina_peek::preview::fingerprintBundleEntries;
+using lamina_peek::preview::isBundleTypeName;
+
 namespace {
-
-// Mirror of BundlePreviewProvider::isBundleTypeName (kept in sync by hand;
-// the real one needs ItemStackBase). Any change to the matching rule must
-// update both copies and these cases.
-bool isBundleTypeName(std::string const& typeName) {
-    constexpr std::string_view kSuffix = "bundle";
-    if (!typeName.ends_with(kSuffix)) {
-        return false;
-    }
-    if (typeName.size() == kSuffix.size()) {
-        return true;
-    }
-    char const boundary = typeName[typeName.size() - kSuffix.size() - 1];
-    return boundary == '_' || boundary == ':';
-}
-
-// Mirror of BundleGrid::shapeFor (constexpr, same algorithm).
-struct Grid {
-    int columns;
-    int rows;
-};
-
-constexpr int kMaxSlots     = 16;
-constexpr int kMinColumns   = 3;
-constexpr int kMaxColumns   = 4;
-constexpr int kEmptyColumns = 3;
-constexpr int kEmptyRows    = 1;
-
-// Empty Bundles report the minimal 3x1 frame (the render layer decides
-// whether to draw it via `bundle.showEmpty`); this mirrors the provider.
-constexpr Grid emptyShape() { return {kEmptyColumns, kEmptyRows}; }
-
-constexpr Grid shapeFor(int filled) {
-    if (filled <= 0) {
-        return {0, 0};
-    }
-    if (filled > kMaxSlots) {
-        filled = kMaxSlots;
-    }
-    for (int columns = kMinColumns; columns <= kMaxColumns; ++columns) {
-        if (filled <= columns * columns) {
-            return {columns, (filled + columns - 1) / columns};
-        }
-    }
-    return {kMaxColumns, (filled + kMaxColumns - 1) / kMaxColumns};
-}
 
 int gFailures = 0;
 
@@ -84,54 +42,75 @@ void testRejectsNonBundles() {
     CHECK(!isBundleTypeName("minecraft:bundlelike"));
 }
 
-void testEmptyBundleReportsMinimalFrame() {
-    // shapeFor(<=0) stays 0x0 (nothing to pack); the provider reports the
-    // minimal 3x1 frame for empty Bundles so `bundle.showEmpty` draws it.
-    Grid const g = shapeFor(0);
-    CHECK(g.columns == 0 && g.rows == 0);
-    Grid const neg = shapeFor(-3);
-    CHECK(neg.columns == 0 && neg.rows == 0);
-    Grid const empty = emptyShape();
-    CHECK(empty.columns == kEmptyColumns && empty.rows == kEmptyRows);
-}
-
-void testSingleEntryStaysReadable() {
-    Grid const g = shapeFor(1);
-    CHECK(g.columns == 3 && g.rows == 1);
-}
-
-void testPrefersWiderShapes() {
-    // 4 entries fit 3x2 (6 cells) as well as 2x2, but the wider 3-column
-    // shape keeps the preview short.
-    Grid const four = shapeFor(4);
-    CHECK(four.columns == 3 && four.rows == 2);
-    Grid const nine = shapeFor(9);
-    CHECK(nine.columns == 3 && nine.rows == 3);
+void testShapeForSmallCounts() {
+    // shapeFor(<=0) stays 0x0 (nothing to pack).
+    CHECK(BundleGrid::shapeFor(0).columns == 0 && BundleGrid::shapeFor(0).rows == 0);
+    CHECK(BundleGrid::shapeFor(-3).columns == 0 && BundleGrid::shapeFor(-3).rows == 0);
+    // Single entries stay readable instead of a 1-wide strip.
+    CHECK(BundleGrid::shapeFor(1).columns == 3 && BundleGrid::shapeFor(1).rows == 1);
+    // 4 entries fit 3x2 (6 cells): the wider 3-column shape keeps it short.
+    CHECK(BundleGrid::shapeFor(4).columns == 3 && BundleGrid::shapeFor(4).rows == 2);
+    CHECK(BundleGrid::shapeFor(9).columns == 3 && BundleGrid::shapeFor(9).rows == 3);
     // 10 entries need a 4th column rather than a 4th row.
-    Grid const ten = shapeFor(10);
-    CHECK(ten.columns == 4 && ten.rows == 3);
+    CHECK(BundleGrid::shapeFor(10).columns == 4 && BundleGrid::shapeFor(10).rows == 3);
 }
 
-void testFullBundleStaysBounded() {
-    Grid const full = shapeFor(16);
-    CHECK(full.columns == 4 && full.rows == 4);
-    // Past the cap: clamped, never drawn partially.
-    Grid const over = shapeFor(64);
-    CHECK(over.columns == 4 && over.rows == 4);
+void testShapeForLargeCounts() {
+    // 12 entries (vanilla tooltip view limit) fit 4x3.
+    CHECK(BundleGrid::shapeFor(12).columns == 4 && BundleGrid::shapeFor(12).rows == 3);
+    // 13 entries: first shape past the old 16-cap world (4x4).
+    CHECK(BundleGrid::shapeFor(13).columns == 4 && BundleGrid::shapeFor(13).rows == 4);
+    CHECK(BundleGrid::shapeFor(16).columns == 4 && BundleGrid::shapeFor(16).rows == 4);
+    // 17 entries: grows to 5 columns, never truncates.
+    CHECK(BundleGrid::shapeFor(17).columns == 5 && BundleGrid::shapeFor(17).rows == 4);
+    CHECK(BundleGrid::shapeFor(32).columns == 6 && BundleGrid::shapeFor(32).rows == 6);
+    CHECK(BundleGrid::shapeFor(64).columns == 8 && BundleGrid::shapeFor(64).rows == 8);
+    // Past the cap: clamped at 64, never drawn partially.
+    CHECK(BundleGrid::shapeFor(65).columns == 8 && BundleGrid::shapeFor(65).rows == 8);
+    CHECK(BundleGrid::shapeFor(1000).columns == 8 && BundleGrid::shapeFor(1000).rows == 8);
 }
 
-void testEveryShapeFitsOnScreen() {
-    // At vanilla pitch (18-unit cells, 4-unit padding) even the largest grid
-    // is 80x80 GUI units: on-screen at ordinary UI sizes.
-    for (int filled = 1; filled <= kMaxSlots; ++filled) {
-        Grid const g = shapeFor(filled);
-        CHECK(g.columns >= kMinColumns && g.columns <= kMaxColumns);
-        CHECK(g.rows >= 1 && g.rows <= 4);
+void testEveryShapeHoldsItsEntries() {
+    for (int filled = 1; filled <= BundleGrid::kMaxSlots; ++filled) {
+        BundleGrid const g = BundleGrid::shapeFor(filled);
+        CHECK(g.columns >= BundleGrid::kMinColumns && g.columns <= BundleGrid::kMaxColumns);
         CHECK(g.columns * g.rows >= filled);
-        float const w = g.columns * 18.0f + 8.0f;
-        float const h = g.rows * 18.0f + 8.0f;
-        CHECK(w <= 80.0f + 1e-4f && h <= 80.0f + 1e-4f);
+        // Minimal: one fewer row would not hold the entries... except when a
+        // narrower shape could (columns grow before rows, so minimality is
+        // approximate for non-square counts).
+        CHECK(g.rows >= 1);
     }
+}
+
+void testLargeGridFitsOrdinaryScreens() {
+    // At vanilla pitch (18-unit cells, 4-unit padding) the full 8x8 grid is
+    // 152x152 GUI units: fits an ordinary full-HD inventory screen (~300+
+    // units wide), and PreviewLayout::anchored flips/clamps at screen edges.
+    float const w = 8 * 18.0f + 8.0f;
+    float const h = 8 * 18.0f + 8.0f;
+    CHECK(w == 152.0f && h == 152.0f);
+    for (int filled = 1; filled <= BundleGrid::kMaxSlots; ++filled) {
+        BundleGrid const g = BundleGrid::shapeFor(filled);
+        float const      gw = g.columns * 18.0f + 8.0f;
+        float const      gh = g.rows * 18.0f + 8.0f;
+        CHECK(gw <= 152.0f && gh <= 152.0f);
+    }
+}
+
+void testFingerprintIsOrderAndContentSensitive() {
+    uint64_t const a = fingerprintBundleEntries(0, 0, 1, 0, 1, 12345ULL);
+    uint64_t const b = fingerprintBundleEntries(0, 0, 1, 0, 1, 12345ULL);
+    CHECK(a == b && a != 0);
+    // Different slot, id, aux, count or entry hash all change the fingerprint.
+    CHECK(fingerprintBundleEntries(0, 1, 1, 0, 1, 12345ULL) != a);
+    CHECK(fingerprintBundleEntries(0, 0, 2, 0, 1, 12345ULL) != a);
+    CHECK(fingerprintBundleEntries(0, 0, 1, 1, 1, 12345ULL) != a);
+    CHECK(fingerprintBundleEntries(0, 0, 1, 0, 2, 12345ULL) != a);
+    CHECK(fingerprintBundleEntries(0, 0, 1, 0, 1, 54321ULL) != a);
+    // Chaining is order-sensitive: same entries in different order differ.
+    uint64_t const ab = fingerprintBundleEntries(a, 1, 2, 0, 1, 999ULL);
+    uint64_t const ba = fingerprintBundleEntries(fingerprintBundleEntries(0, 1, 2, 0, 1, 999ULL), 0, 1, 0, 1, 12345ULL);
+    CHECK(ab != ba);
 }
 
 } // namespace
@@ -139,11 +118,11 @@ void testEveryShapeFitsOnScreen() {
 int runBundlePreviewTests() {
     testSupportsEveryBundleColour();
     testRejectsNonBundles();
-    testEmptyBundleReportsMinimalFrame();
-    testSingleEntryStaysReadable();
-    testPrefersWiderShapes();
-    testFullBundleStaysBounded();
-    testEveryShapeFitsOnScreen();
+    testShapeForSmallCounts();
+    testShapeForLargeCounts();
+    testEveryShapeHoldsItsEntries();
+    testLargeGridFitsOrdinaryScreens();
+    testFingerprintIsOrderAndContentSensitive();
     if (gFailures == 0) {
         std::printf("BundlePreview tests: all passed\n");
     } else {

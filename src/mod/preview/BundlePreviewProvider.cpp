@@ -6,6 +6,8 @@
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/item/ItemStackBase.h"
 
+#include "mod/LaminaPeek.h"
+
 #include <algorithm>
 #include <string>
 #include <string_view>
@@ -28,21 +30,26 @@ int readSlotIndex(CompoundTag const& entry) {
     return static_cast<int>(it->second);
 }
 
-// True when `typeName` is a Bundle of any colour: exactly "minecraft:bundle"
-// or "<namespace>:<colour>_bundle" ("undyed_bundle" included). A plain
-// `ends_with("bundle")` would also match unrelated future items, so the '_'
-// (or ':') boundary before "bundle" is required.
-bool isBundleTypeName(std::string const& typeName) {
-    constexpr std::string_view kSuffix = "bundle";
-    if (!typeName.ends_with(kSuffix)) {
-        return false;
+#ifdef LAMINAPEEK_TRACE
+// Logs the Bundle's raw NBT key names once per distinct key-set so a trace
+// build can confirm (or correct) the storage-key assumption in-game: hover a
+// real Bundle and read the `Bundle NBT keys:` line in trace.log. Key names
+// only — never item data.
+void logBundleNbtKeys(CompoundTag const& userData) {
+    static std::string sLastKeys;
+    std::string        keys;
+    for (auto const& [name, _] : userData.mTags) {
+        if (!keys.empty()) {
+            keys += ',';
+        }
+        keys += name;
     }
-    if (typeName.size() == kSuffix.size()) {
-        return true;
+    if (keys != sLastKeys) {
+        sLastKeys = keys;
+        LaminaPeek::getInstance().getSelf().getLogger().debug("Bundle NBT keys: [{}]", keys);
     }
-    char const boundary = typeName[typeName.size() - kSuffix.size() - 1];
-    return boundary == '_' || boundary == ':';
 }
+#endif
 
 } // namespace
 
@@ -67,6 +74,9 @@ std::optional<ContainerPreview> BundlePreviewProvider::extract(ItemStackBase con
         preview.family = ContainerPreview::Family::Bundle;
         return preview;
     }
+#ifdef LAMINAPEEK_TRACE
+    logBundleNbtKeys(*userData);
+#endif
     auto itemsIt = userData->mTags.find(kItemsKey);
     if (itemsIt == userData->mTags.end() || !itemsIt->second.is_array()) {
         auto preview   = ContainerPreview::empty(BundleGrid::kEmptyColumns, BundleGrid::kEmptyRows);
@@ -74,9 +84,11 @@ std::optional<ContainerPreview> BundlePreviewProvider::extract(ItemStackBase con
         return preview;
     }
     // First pass: decode every entry into its stored slot. Entries are keyed
-    // by Slot (like the Shulker provider) rather than list order, so a
-    // reordered or sparse list still maps each stack to the slot the game
-    // means. Anything undecodable is counted as skipped, never drawn.
+    // by Slot (container slot index, shared with the Shulker/box-entity save
+    // format) rather than list order, so a reordered or sparse list still maps
+    // each stack to the slot the game means. Anything undecodable is counted
+    // as skipped, never drawn. There is no arbitrary cap: Bedrock storage
+    // items support up to 64 dynamic slots and every real entry is retained.
     struct DecodedEntry {
         int       slot;
         ItemStack stack;
@@ -119,16 +131,12 @@ std::optional<ContainerPreview> BundlePreviewProvider::extract(ItemStackBase con
         return preview;
     }
 
-    // Second pass: pack in slot order into the bounded dynamic grid. Sorting
-    // by stored slot keeps insertion-adjacent items adjacent on screen, and
-    // compacting drops the sparse gaps a fixed grid would draw as holes.
+    // Second pass: pack in slot order into the dynamic grid. Sorting by stored
+    // slot keeps insertion-adjacent items adjacent on screen, and compacting
+    // drops the sparse gaps a fixed grid would draw as holes.
     std::sort(decoded.begin(), decoded.end(), [](DecodedEntry const& a, DecodedEntry const& b) {
         return a.slot < b.slot;
     });
-    if (static_cast<int>(decoded.size()) > BundleGrid::kMaxSlots) {
-        skipped += static_cast<int>(decoded.size()) - BundleGrid::kMaxSlots;
-        decoded.resize(static_cast<size_t>(BundleGrid::kMaxSlots));
-    }
     BundleGrid const grid   = BundleGrid::shapeFor(static_cast<int>(decoded.size()));
     auto             preview = ContainerPreview::empty(grid.columns, grid.rows);
     preview.family           = ContainerPreview::Family::Bundle;
@@ -136,6 +144,15 @@ std::optional<ContainerPreview> BundlePreviewProvider::extract(ItemStackBase con
         preview.slots[i] = std::move(decoded[i].stack);
     }
     preview.skippedSlotCount = skipped;
+#ifdef LAMINAPEEK_TRACE
+    LaminaPeek::getInstance().getSelf().getLogger().debug(
+        "Bundle extract: entries={} skipped={} grid={}x{}",
+        decoded.size(),
+        skipped,
+        grid.columns,
+        grid.rows
+    );
+#endif
     return preview;
 }
 

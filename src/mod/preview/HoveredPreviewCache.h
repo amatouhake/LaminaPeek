@@ -1,10 +1,11 @@
 #pragma once
 
+#include "mod/preview/BundleContents.h"
 #include "mod/preview/BundlePreviewProvider.h"
 #include "mod/preview/ContainerPreview.h"
 #include "mod/preview/ShulkerPreviewProvider.h"
-
 #include <array>
+#include <cstdint>
 #include <optional>
 
 class CompoundTag;
@@ -26,22 +27,28 @@ public:
     [[nodiscard]] ContainerPreview const* resolve(ScreenController const& controller);
 
     void clear();
-
 private:
-    // Identity of the item the cached preview was extracted from. A change in
-    // any field (new stack in the slot, replaced NBT, different count) forces a
-    // fresh extraction.
+    // Identity of the item the cached preview was extracted from. Pointer
+    // fields catch a different stack in the slot; the content fingerprint
+    // catches in-place NBT mutation at stable addresses (Bundle insert/remove
+    // rewrites the same user-data object, so pointer comparison alone would go
+    // stale). `id`/`aux`/`count` are folded into the fingerprint for Bundles;
+    // the Shulker path keeps its cheap pointer fast-path via the same key.
     struct Key {
         ItemStackBase const* stack{nullptr};
         CompoundTag const*   userData{nullptr};
         short                id{0};
         short                aux{0};
         unsigned char        count{0};
+        uint64_t             contentFingerprint{0};
 
         bool operator==(Key const&) const = default;
     };
 
+    [[nodiscard]] Key makeKey(ItemStackBase const& item);
+
     [[nodiscard]] std::optional<ContainerPreview> extract(ItemStackBase const& item);
+
     ShulkerPreviewProvider                mShulkerProvider;
     BundlePreviewProvider                 mBundleProvider;
     std::array<PreviewProvider const*, 2> mProviders{&mShulkerProvider, &mBundleProvider};
