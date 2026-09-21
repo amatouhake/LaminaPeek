@@ -5,11 +5,16 @@
 
 #include "mod/preview/BundleContents.h"
 
+#include <cstdint>
 #include <cstdio>
 
 using lamina_peek::preview::BundleGrid;
-using lamina_peek::preview::fingerprintBundleEntries;
+using lamina_peek::preview::fingerprintBundleEntry;
+using lamina_peek::preview::fingerprintBundleFinal;
 using lamina_peek::preview::isBundleTypeName;
+using lamina_peek::preview::kBundleFingerprintNoSlot;
+using lamina_peek::preview::kBundleFingerprintNullHash;
+using lamina_peek::preview::kBundleFingerprintNullKind;
 
 namespace {
 
@@ -98,24 +103,35 @@ void testLargeGridFitsOrdinaryScreens() {
 }
 
 void testFingerprintIsOrderAndContentSensitive() {
-    uint64_t const a = fingerprintBundleEntries(0, 0, 1, 0, 1, 12345ULL);
-    uint64_t const b = fingerprintBundleEntries(0, 0, 1, 0, 1, 12345ULL);
+    // The production entry mixer: same inputs hash identically, any field
+    // change (slot, tag kind, entry hash) changes the fingerprint.
+    uint64_t const a = fingerprintBundleEntry(0, 0, 10u, 12345ULL);
+    uint64_t const b = fingerprintBundleEntry(0, 0, 10u, 12345ULL);
     CHECK(a == b && a != 0);
-    // Different slot, id, aux, count or entry hash all change the fingerprint.
-    CHECK(fingerprintBundleEntries(0, 1, 1, 0, 1, 12345ULL) != a);
-    CHECK(fingerprintBundleEntries(0, 0, 2, 0, 1, 12345ULL) != a);
-    CHECK(fingerprintBundleEntries(0, 0, 1, 1, 1, 12345ULL) != a);
-    CHECK(fingerprintBundleEntries(0, 0, 1, 0, 2, 12345ULL) != a);
-    CHECK(fingerprintBundleEntries(0, 0, 1, 0, 1, 54321ULL) != a);
+    CHECK(fingerprintBundleEntry(0, 1, 10u, 12345ULL) != a);  // slot change
+    CHECK(fingerprintBundleEntry(0, 0, 8u, 12345ULL) != a);   // tag-kind change
+    CHECK(fingerprintBundleEntry(0, 0, 10u, 54321ULL) != a);  // content change
     // Chaining is order-sensitive: same entries in different order differ.
-    uint64_t const ab = fingerprintBundleEntries(a, 1, 2, 0, 1, 999ULL);
-    uint64_t const ba = fingerprintBundleEntries(fingerprintBundleEntries(0, 1, 2, 0, 1, 999ULL), 0, 1, 0, 1, 12345ULL);
+    uint64_t const ab =
+        fingerprintBundleEntry(a, 1, 10u, 999ULL);
+    uint64_t const ba = fingerprintBundleEntry(fingerprintBundleEntry(0, 1, 10u, 999ULL), 0, 10u, 12345ULL);
     CHECK(ab != ba);
-    // The skipped-element sentinel (mirrors HoveredPreviewCache: slot -3)
-    // differs from a real entry and from "no entry".
-    uint64_t const sentinel = fingerprintBundleEntries(0, -3, 0, 0, 0, 0x9E3779B97F4A7C15ULL);
+    // The malformed-element sentinel (the exact production constants the
+    // cache mixes for null entries) differs from a real entry and from the
+    // empty seed: malformed/non-Compound elements participate, never vanish.
+    uint64_t const sentinel =
+        fingerprintBundleEntry(0, kBundleFingerprintNoSlot, kBundleFingerprintNullKind, kBundleFingerprintNullHash);
     CHECK(sentinel != 0 && sentinel != a);
-    CHECK(fingerprintBundleEntries(a, -3, 0, 0, 0, 0x9E3779B97F4A7C15ULL) != ab);
+    CHECK(fingerprintBundleEntry(a, kBundleFingerprintNoSlot, kBundleFingerprintNullKind, kBundleFingerprintNullHash) != ab);
+    // The production tail mixer: stack identity and entry count participate.
+    uint64_t const tailA = fingerprintBundleFinal(a, 1, 0, 1, 2);
+    CHECK(tailA == fingerprintBundleFinal(a, 1, 0, 1, 2));
+    CHECK(fingerprintBundleFinal(a, 2, 0, 1, 2) != tailA); // stack id change
+    CHECK(fingerprintBundleFinal(a, 1, 1, 1, 2) != tailA); // aux change
+    CHECK(fingerprintBundleFinal(a, 1, 0, 2, 2) != tailA); // count change
+    CHECK(fingerprintBundleFinal(a, 1, 0, 1, 3) != tailA); // structure change
+    // Empty Bundles are stable: the same tail mix over a zero seed.
+    CHECK(fingerprintBundleFinal(0, 1, 0, 1, 0) == fingerprintBundleFinal(0, 1, 0, 1, 0));
 }
 
 } // namespace

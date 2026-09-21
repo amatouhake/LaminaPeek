@@ -58,33 +58,44 @@ referenced in function "void __cdecl probe::reference(void)"
 build\windows\x64\release\LaminaPeek.dll : fatal error LNK1120: 1 unresolved external
 ```
 
-Notes:
+## What this transcript demonstrates — and what it does not
 
-- The linker reports the **first** unresolved symbol and stops
-  (`LNK1120: 1 unresolved external`), so this transcript names
-  `bundleIDTag` — i.e. even the tag-name constants do not resolve in a
-  client link. The remaining probe symbols (`bundleContentTag`,
-  `bundleWeightTag`, `getStorageItemID`,
-  `getStorageItemWeightDataClient`, `getDynamicContainerModel`,
-  `getItemStack`) were not individually re-probed after deleting the TU;
-  the header-level evidence stands on its own: `StorageItemUtility` and
-  the `ContainerManagerController` contents APIs sit behind
-  `#ifdef LL_PLAT_C`-gated `MCAPI` client blocks whose symbols the
-  client `bedrock_runtime` does not export (client imports resolve only
-  via delay-loaded `bedrock_runtime.dll` through the prelink-generated
-  `bedrock_runtime_api.lib`; the link failure above is that mechanism
-  reporting the symbol absent).
+- Demonstrated: `StorageItemComponentTags::bundleIDTag()` does not resolve in
+  a client link (LNK2019 above, first-unresolved-symbol stop). That single
+  symbol is proven absent from the client link.
+- Header-level context (not link proof): `getDynamicContainerModel` and
+  `getItemStack` are declared inside an `#ifdef LL_PLAT_C` member-function
+  block of `ContainerManagerController` (lines ~201–368, `#endif` at 369),
+  and `getStorageItemID` / `getStorageItemWeightDataClient` sit in an
+  `#ifdef LL_PLAT_C` block of `StorageItemUtility.h` — declared for the
+  client build, yet the client `bedrock_runtime` import surface does not
+  resolve them on link (proven for `bundleIDTag`; unprobed for the rest).
+  Absent a per-symbol link transcript, the remainder stays investigation,
+  not demonstration.
 - The probe TU was deleted after the run; the mod builds clean without
   it (`xmake build LaminaPeek` → `build ok`).
 - Repro: re-add the TU above verbatim, run `xmake build LaminaPeek`,
-  observe LNK2019/LNK1120, delete the TU, rebuild.
+  observe LNK2019/LNK1120, delete the TU, rebuild. To promote any further
+  candidate to demonstrated, probe it ALONE (one TU referencing only that
+  symbol) and record its individual LNK2019/LNK1120 or success here.
 
-## Conclusion
+## Conclusion (evidence-accurate)
 
-No client-callable "give me all Bundle contents" API exists in the
-26.51.3 client SDK. The provider therefore reads the hovered
-`ItemStackBase`'s NBT `Items` list via `ItemStack::fromTag` per entry —
-the same round-trip the game uses — with trace-build logging
+Demonstrated: `StorageItemComponentTags::bundleIDTag` has no client-link
+resolution in 26.51.3. Investigated but not individually link-proven:
+`bundleContentTag`, `bundleWeightTag`, `getStorageItemID`,
+`getStorageItemWeightDataClient`, `getDynamicContainerModel`, `getItemStack`
+(single-signature, non-overloaded declarations — see
+`StorageItemComponentTags.h`, `StorageItemUtility.h`,
+`ContainerManagerController.h`). No usable whole-contents route is
+established on the client in this SDK: the per-index
+`BundleHelper::getItemStackFromBundle` and the weight-only
+`getStorageItemWeightDataClient` cannot back a full preview by inspection,
+and the live-registry route would couple the preview to vanilla
+selection/scroll state. The provider therefore reads the hovered
+`ItemStackBase`'s NBT `Items` list as the current CANDIDATE (status:
+implementation ready for runtime validation) via `ItemStack::fromTag` per
+entry — the same round-trip the game uses — with trace-build logging
 (`Bundle NBT keys:`, `Bundle extract: entries=`) to confirm the key
 in-game. If a future build moves contents elsewhere, the log names the
 exact key to adopt.

@@ -75,18 +75,37 @@ struct BundleGrid {
     }
 };
 
-/// Cheap content fingerprint for cache invalidation: FNV-1a over the
-/// authoritative per-entry bytes (slot index, item id/aux/count and the
-/// entry's NBT hash). Order-sensitive (slot order is part of the preview),
-/// allocation-free, and game-independent so tests pin it directly.
-[[nodiscard]] inline uint64_t fingerprintBundleEntries(
-    uint64_t seed,
-    int      slot,
-    short    id,
-    short    aux,
-    uint8_t  count,
-    uint64_t entryHash
-) {
+/// Lightweight content fingerprint for Bundle cache invalidation.
+///
+/// The hover cache re-keys every frame, so the fingerprint MUST NEVER touch
+/// the item registry: `ItemStack::fromTag` resolves each entry by name and
+/// rebuilds a full stack (up to 64 registry lookups per frame while
+/// hovering). Each entry therefore contributes only its raw NBT identity —
+/// the stored `Slot` index read straight off the entry map, the entry's tag
+/// `Type` id (so a Compound<->non-Compound flip changes the key) and the
+/// entry's `Tag::hash()` (covers Name/Count/Damage/tag/... without
+/// decoding). Chained in list order with FNV-1a: order-sensitive,
+/// allocation-free, and game-independent so the unit tests pin the
+/// production mixers directly.
+///
+/// `fingerprintBundleFinal` folds the Bundle stack's own id/aux/count plus
+/// the entry count, so a swapped-in Bundle with identical contents still
+/// re-extracts, and a grown/shrunk list changes the key even if the
+/// surviving entries hash the same. An empty Bundle (no `Items` list) hashes
+/// the tail over a zero seed: stable across identical empties.
+
+/// Slot contribution for entries that carry no usable slot: null pointers
+/// and non-Compound elements. Real slots are >= -1 (`Slot` absent yields
+/// -1), so -3 can only come from here.
+inline constexpr int kBundleFingerprintNoSlot = -3;
+/// Tag-kind contribution when there is no tag to ask (null list element).
+/// `Tag::Type` ids are small (< 12), so this can only come from here.
+inline constexpr uint32_t kBundleFingerprintNullKind = 0xFFFFFFFFu;
+/// Entry-hash contribution when there is no tag to hash (null list element).
+inline constexpr uint64_t kBundleFingerprintNullHash = 0x9E3779B97F4A7C15ULL;
+
+/// Mixes one `Items` entry into `seed`: stored slot, tag kind, entry hash.
+[[nodiscard]] inline uint64_t fingerprintBundleEntry(uint64_t seed, int slot, uint32_t entryKind, uint64_t entryHash) {
     // FNV-1a 64: mix each field byte-wise. `seed` chains entries; start from
     // the FNV offset basis for the first entry.
     uint64_t hash = seed == 0 ? 14695981039346656037ULL : seed;
@@ -97,10 +116,25 @@ struct BundleGrid {
         }
     };
     mix(static_cast<uint64_t>(static_cast<uint32_t>(slot)), 4);
-    mix(static_cast<uint64_t>(static_cast<uint16_t>(id)), 2);
-    mix(static_cast<uint64_t>(static_cast<uint16_t>(aux)), 2);
-    mix(static_cast<uint64_t>(count), 1);
+    mix(static_cast<uint64_t>(entryKind), 4);
     mix(entryHash, 8);
+    return hash;
+}
+
+/// Mixes the Bundle stack identity plus the entry count into `seed`.
+[[nodiscard]] inline uint64_t
+fingerprintBundleFinal(uint64_t seed, short bundleId, short bundleAux, uint8_t bundleCount, uint64_t entryCount) {
+    uint64_t hash = seed == 0 ? 14695981039346656037ULL : seed;
+    auto     mix  = [&hash](uint64_t value, int bytes) {
+        for (int i = 0; i < bytes; ++i) {
+            hash ^= static_cast<uint8_t>(value >> (i * 8));
+            hash *= 1099511628211ULL;
+        }
+    };
+    mix(static_cast<uint64_t>(static_cast<uint16_t>(bundleId)), 2);
+    mix(static_cast<uint64_t>(static_cast<uint16_t>(bundleAux)), 2);
+    mix(static_cast<uint64_t>(bundleCount), 1);
+    mix(entryCount, 8);
     return hash;
 }
 

@@ -11,56 +11,63 @@
 namespace lamina_peek::preview {
 
 namespace {
-
-// Fingerprints the Bundle-relevant content bytes of `item`: the `Items` list
-// entries (slot, decoded id/aux/count, entry NBT hash) plus the stack's own
-// id/aux/count. Returns 0 when the item carries no Bundle content list (empty
-// Bundle); 0 also means "nothing to fingerprint", which still compares equal
-// across identical empties. Shulker Boxes skip this (their static contents
-// change only with a new user-data object, caught by the pointer key).
+// Fingerprints the Bundle-relevant content bytes of `item` WITHOUT touching
+// the item registry: each `Items` entry contributes its stored `Slot` index
+// (read straight off the entry map), its tag `Type` id and its `Tag::hash()`
+// — no `ItemStack::fromTag`, no name resolution, no stack reconstruction.
+// O(entries) map/hash work only; the ban is on registry work, not iterating.
+// List order, entry count and the Bundle stack's own id/aux/count are folded
+// in, so insert/remove/reorder/content-mutation at a stable user-data
+// pointer all change the key. Null and non-Compound elements mix sentinels
+// (extract counts them as skipped). Returns the tail mix over a zero seed
+// when the item carries no Bundle content list (empty Bundle): stable across
+// identical empties. Shulker Boxes skip this (their static contents change
+// only with a new user-data object, caught by the pointer key).
 uint64_t fingerprintBundleContent(ItemStackBase const& item) {
     auto const* userData = item.mUserData.get();
-    if (!userData) {
-        return 0;
-    }
-    auto itemsIt = userData->mTags.find("Items");
-    if (itemsIt == userData->mTags.end() || !itemsIt->second.is_array()) {
-        return 0;
-    }
-    uint64_t fingerprint = 0;
-    for (auto const& entryPtr : itemsIt->second.get<ListTag>()) {
-        if (!entryPtr || entryPtr->getId() != Tag::Type::Compound) {
-            // A Compound<->non-Compound flip at a stable address must change
-            // the fingerprint (extract counts these as skipped): mix a
-            // sentinel that no real entry can produce.
-            fingerprint = fingerprintBundleEntries(fingerprint, -3, 0, 0, 0, 0x9E3779B97F4A7C15ULL);
-            continue;
-        }
-        auto const& entry = entryPtr->as<CompoundTag>();
-        int         slot  = -1;
-        if (auto slotIt = entry.mTags.find("Slot");
-            slotIt != entry.mTags.end() && slotIt->second.is_number_integer()) {
-            slot = static_cast<int>(slotIt->second);
-        }
-        // Decode cheaply for id/aux/count only; a decode failure still mixes
-        // the entry hash so it participates in the fingerprint.
-        short   id    = 0;
-        short   aux   = 0;
-        uint8_t count = 0;
-        try {
-            ItemStack stack = ItemStack::fromTag(entry);
-            if (!stack.isNull()) {
-                id    = stack.getId();
-                aux   = stack.mAuxValue;
-                count = stack.mCount;
+    uint64_t    fingerprint = 0;
+    uint64_t    entryCount  = 0;
+    if (userData) {
+        auto itemsIt = userData->mTags.find("Items");
+        if (itemsIt != userData->mTags.end() && itemsIt->second.is_array()) {
+            for (auto const& entryPtr : itemsIt->second.get<ListTag>()) {
+                ++entryCount;
+                if (!entryPtr) {
+                    fingerprint = fingerprintBundleEntry(
+                        fingerprint,
+                        kBundleFingerprintNoSlot,
+                        kBundleFingerprintNullKind,
+                        kBundleFingerprintNullHash
+                    );
+                    continue;
+                }
+                uint32_t const kind = static_cast<uint32_t>(entryPtr->getId());
+                uint64_t     entryHash = 0;
+                try {
+                    entryHash = entryPtr->hash();
+                } catch (...) {
+                    // A throwing hash must still invalidate: fall back to a
+                    // sentinel no real hash mix is likely to collide with.
+                    entryHash = kBundleFingerprintNullHash;
+                }
+                int slot = kBundleFingerprintNoSlot;
+                if (entryPtr->getId() == Tag::Type::Compound) {
+                    auto const& entry = entryPtr->as<CompoundTag>();
+                    slot              = -1;
+                    if (auto slotIt = entry.mTags.find("Slot");
+                        slotIt != entry.mTags.end() && slotIt->second.is_number_integer()) {
+                        slot = static_cast<int>(slotIt->second);
+                    }
+                }
+                fingerprint = fingerprintBundleEntry(fingerprint, slot, kind, entryHash);
             }
-        } catch (...) {
         }
-        fingerprint = fingerprintBundleEntries(fingerprint, slot, id, aux, count, entry.hash());
     }
-    // Fold the Bundle stack's own identity so a swapped-in Bundle with
-    // identical contents still re-extracts (cheap; one mix).
-    fingerprint = fingerprintBundleEntries(fingerprint, -2, item.getId(), item.mAuxValue, item.mCount, 0);
+    // Fold the Bundle stack's own identity plus the entry count so a
+    // swapped-in Bundle with identical contents still re-extracts, and a
+    // grown/shrunk list changes the key even if surviving entries hash equal.
+    fingerprint =
+        fingerprintBundleFinal(fingerprint, item.getId(), item.mAuxValue, item.mCount, entryCount);
     return fingerprint;
 }
 
@@ -72,10 +79,10 @@ HoveredPreviewCache::Key HoveredPreviewCache::makeKey(ItemStackBase const& item)
     key.userData = item.mUserData.get();
     key.id       = item.getId();
     key.aux      = item.mAuxValue;
-    key.count    = item.mCount;
-    // Fingerprinting every hovered item every frame would decode NBT on the
+    // Fingerprinting every hovered item every frame would hash NBT on the
     // hot path; only Bundles mutate in place, so only they pay for it. The
-    // predicate is the production one (no duplication).
+    // fingerprint itself never resolves items (slot/tag-kind/tag-hash only).
+    // The predicate is the production one (no duplication).
     if (isBundleTypeName(item.getTypeName())) {
         try {
             key.contentFingerprint = fingerprintBundleContent(item);

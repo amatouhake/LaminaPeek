@@ -111,8 +111,9 @@ std::optional<ContainerPreview> BundlePreviewProvider::extract(ItemStackBase con
 
         // fromTag resolves the item by name through the client's item
         // registry and yields a null stack for unknown or malformed entries.
-        // A single entry that throws must not take the rest of the Bundle
-        // with it, so the failure is contained to its entry.
+        // Allowed here: extract runs only on cache-key change, never per
+        // frame. A single entry that throws must not take the rest of the
+        // Bundle with it, so the failure is contained to its entry.
         try {
             ItemStack stack = ItemStack::fromTag(entry);
             if (stack.isNull()) {
