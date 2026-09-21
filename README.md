@@ -88,7 +88,7 @@ defaults below. Settings are grouped per preview provider.
 
 ```json
 {
-    "version": 1,
+    "version": 2,
     "shulker": {
         "enabled": true,
         "showEmpty": false,

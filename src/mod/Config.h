@@ -6,9 +6,12 @@ namespace lamina_peek {
 ///
 /// Settings are grouped per preview provider so that future providers (e.g.
 /// "bundle") get their own section instead of new top-level flags. Bump
-/// `version` when the layout changes incompatibly.
+/// `version` whenever a field is added or the layout changes: LeviLamina only
+/// merges defaults into an existing file when the stored version differs, so
+/// an un-bumped schema makes older files fail with "missing required field".
 struct Config {
-    int version = 1;
+    /// 1: shulker section only (0.1.0). 2: adds the bundle section.
+    int version = 2;
 
     struct Shulker {
         /// Master switch for the Shulker Box preview. When false LaminaPeek

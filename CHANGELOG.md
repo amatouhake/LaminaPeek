@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Config schema version bumped to 2 so an existing 0.1.0 `config.json`
+  (without the `bundle` section) is upgraded in place with defaults instead of
+  failing with "missing required field \"bundle\"" and discarding the
+  user's `shulker` settings on every start.
+
 ### Added
 
 - Bundle preview: hovering a Bundle (any colour) in the player inventory, a
