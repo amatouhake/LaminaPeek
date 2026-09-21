@@ -106,7 +106,7 @@ void testIconIsCentredInCell() {
 
 } // namespace
 
-int main() {
+int runPreviewLayoutTests() {
     testFrameSize();
     testAnchorsAboveRightWhenThereIsRoom();
     testFallsBelowWhenNoRoomAbove();
@@ -117,11 +117,10 @@ int main() {
     testClampsToBottomEdge();
     testCellsFollowRowMajorSlotOrder();
     testIconIsCentredInCell();
-
     if (gFailures == 0) {
         std::printf("PreviewLayout tests: all passed\n");
-        return 0;
+    } else {
+        std::printf("PreviewLayout tests: %d failure(s)\n", gFailures);
     }
-    std::printf("PreviewLayout tests: %d failure(s)\n", gFailures);
-    return 1;
+    return gFailures;
 }

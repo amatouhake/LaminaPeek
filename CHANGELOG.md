@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Durability bar in the preview: damaged tools/armor show the vanilla slot
+  overlay (black strip with a fill whose width tracks remaining durability,
+  green -> yellow -> red; geometry, rounding and colours measured against the
+  real 1.26.51 slot) drawn over the icon and glint but under the stack count.
+  Undamaged items show no bar; non-damageables and the 9×3 layout are
+  unchanged.
+
 ## [0.1.0] - 2026-09-21
 
 ### Added
