@@ -170,8 +170,9 @@ void PreviewRenderer::render(
         Rect const          foreground = durabilityForeground(background, ratio);
         DurabilityRgb const rgb        = durabilityColor(ratio);
         context.fillRectangle(toArea(background), kDurabilityBackground, kSlotAlpha);
-        // The background stays unconditional so a fully-used item still shows
-        // the dark strip; the foreground collapses to zero width at ratio 0.
+        // The background stays unconditional so a nearly-broken item still
+        // shows the black strip; the fill rounds to zero width below 1/24
+        // remaining, as in the vanilla slot.
         if (foreground.width() > 0.0f) {
             context.fillRectangle(toArea(foreground), mce::Color{rgb.r, rgb.g, rgb.b, 1.0f}, kSlotAlpha);
         }

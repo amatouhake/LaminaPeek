@@ -67,31 +67,32 @@ void testColorRampIsGreenYellowRed() {
     CHECK(low.r > 0.9f && low.g < 0.4f && near(low.b, 0.0f));
 }
 
-void testBarGeometrySitsAtIconBottom() {
-    Rect const icon{10.0f, 20.0f, 26.0f, 36.0f}; // 16x16 icon
+void testBarGeometryMatchesVanillaSlot() {
+    // Measured on 1.26.51 (2 px/unit): black strip x 2..15, y 12.5..14.5 of
+    // the 16x16 icon.
+    Rect const icon{10.0f, 20.0f, 26.0f, 36.0f};
     Rect const bg = durabilityBackground(icon);
-    CHECK(near(bg.height(), 2.0f));                             // 2 units tall
-    CHECK(near(bg.x0, icon.x0 + 1.0f) && near(bg.x1, icon.x1 - 1.0f)); // 1-unit side margins
-    CHECK(near(bg.y1, icon.y1 - 1.0f));                         // 1 unit above the icon bottom
-    CHECK(near(bg.width(), 14.0f));
+    CHECK(near(bg.x0, icon.x0 + 2.0f) && near(bg.x1, icon.x0 + 15.0f));
+    CHECK(near(bg.y0, icon.y0 + 12.5f) && near(bg.y1, icon.y0 + 14.5f));
+    CHECK(near(bg.width(), 13.0f) && near(bg.height(), 2.0f));
 }
 
-void testForegroundWidthTracksRatio() {
-    Rect const bg{0.0f, 0.0f, 14.0f, 2.0f};
-    Rect const full = durabilityForeground(bg, 1.0f);
-    CHECK(near(full.width(), bg.width())); // undamaged width == full strip (visibility gates this path)
+void testForegroundWidthRoundsLikeVanilla() {
+    Rect const bg{0.0f, 0.0f, 13.0f, 2.0f};
+    // Fill is the strip's top row only, left-aligned.
     Rect const half = durabilityForeground(bg, 0.5f);
-    CHECK(near(half.width(), bg.width() * 0.5f));
-    CHECK(near(half.x0, bg.x0)); // left-aligned
-    CHECK(near(half.y0, bg.y0) && near(half.y1, bg.y1));
-    // A nearly-broken item keeps a visible sliver instead of vanishing.
-    Rect const sliver = durabilityForeground(bg, 0.001f);
-    CHECK(near(sliver.width(), 1.0f));
-    CHECK(near(sliver.x0, bg.x0));
-    // Zero remaining collapses to nothing (vanilla shows only the dark strip).
-    Rect const gone = durabilityForeground(bg, 0.0f);
-    CHECK(near(gone.width(), 0.0f));
-    CHECK(near(gone.x0, bg.x0));
+    CHECK(near(half.x0, bg.x0) && near(half.y0, bg.y0) && near(half.height(), 1.0f));
+    // Widths observed in the vanilla slot for the fixtures used in-game:
+    CHECK(near(durabilityForeground(bg, 0.5f).width(), 6.0f));            // iron chestplate 120/240
+    CHECK(near(durabilityForeground(bg, 284.0f / 384.0f).width(), 9.0f)); // bow 100/384
+    CHECK(near(durabilityForeground(bg, 29.0f / 59.0f).width(), 6.0f));   // wooden shovel 30/59
+    CHECK(near(durabilityForeground(bg, 1261.0f / 1561.0f).width(), 10.0f)); // diamond sword 300/1561
+    CHECK(near(durabilityForeground(bg, 50.0f / 250.0f).width(), 2.0f));  // iron sword 200/250
+    CHECK(near(durabilityForeground(bg, 1.0f / 32.0f).width(), 0.0f));    // golden pickaxe 31/32: strip only
+    // Full width never exceeds the 12-unit bar; zero remaining draws no fill.
+    CHECK(near(durabilityForeground(bg, 1.0f).width(), 12.0f));
+    CHECK(near(durabilityForeground(bg, 0.0f).width(), 0.0f));
+    CHECK(near(durabilityForeground(bg, 0.0f).x0, bg.x0));
 }
 
 } // namespace
@@ -101,8 +102,8 @@ int runDurabilityBarTests() {
     testRatioClampsAndGuards();
     testVisibilityMatchesVanillaRule();
     testColorRampIsGreenYellowRed();
-    testBarGeometrySitsAtIconBottom();
-    testForegroundWidthTracksRatio();
+    testBarGeometryMatchesVanillaSlot();
+    testForegroundWidthRoundsLikeVanilla();
     if (gFailures == 0) {
         std::printf("DurabilityBar tests: all passed\n");
     } else {

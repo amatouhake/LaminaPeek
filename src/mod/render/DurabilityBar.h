@@ -5,10 +5,11 @@
 // Pure durability-overlay math for the preview grid. Deliberately free of
 // game types so it can be unit-tested without LeviLamina or the game.
 //
-// The bar mirrors the vanilla slot durability overlay: a dark background
-// strip anchored to the bottom of the 16x16 icon with a coloured foreground
-// whose width tracks remaining durability (green -> yellow -> red, the same
-// hue ramp vanilla uses: full = green, half = yellow, empty = red).
+// The bar mirrors the vanilla slot durability overlay: a black strip near the
+// bottom of the 16x16 icon with a coloured fill whose width tracks remaining
+// durability (green -> yellow -> red, the same hue ramp vanilla uses: full =
+// green, half = yellow, empty = red). Geometry and rounding were measured
+// against the real vanilla slot, see the constants below.
 namespace lamina_peek::render {
 
 /// Remaining durability in [0, 1]: 1 = undamaged, 0 = no uses left.
@@ -66,42 +67,46 @@ struct DurabilityRgb {
     return DurabilityRgb{0.0f, 1.0f, f};
 }
 
-// Bar shape, in the same GUI units as PreviewLayout: 2 units tall with a
-// 1-unit margin on the left, right and bottom of the icon, matching the
-// vanilla overlay which sits at the bottom of the item sprite. Dimensions are
-// proportionally derived from vanilla's 13-wide bar on a 16x16 sprite
-// (13 + 2x1 side margins, 2 tall + 1 bottom margin); a pixel-exact runtime
-// screenshot comparison against a vanilla slot is still pending pre-merge.
-constexpr float kDurabilityBarHeight       = 2.0f;
-constexpr float kDurabilityBarSideMargin   = 1.0f;
-constexpr float kDurabilityBarBottomMargin = 1.0f;
-constexpr float kDurabilityBarMinWidth    = 1.0f; // nearly-broken items keep a visible red sliver
+// Bar shape, in the same GUI units as PreviewLayout, measured pixel-exactly
+// against the vanilla inventory slot on 1.26.51 (2 px per GUI unit, damaged
+// tools/armour in the player inventory next to the preview). Vanilla's bar is
+// `common.durability_bar`: a `progress_bar_renderer` of size [12, 1] at
+// offset [0, 5] from the centre of the 18-unit cell, with `drop_shadow` and
+// `round_value`. On screen that is, relative to the 16x16 icon:
+//   - a black strip 13 units wide x 2 tall, from x = 2 and y = 12.5
+//     (the 1-unit bar plus its 1-unit drop shadow below/right of it);
+//   - the coloured fill 1 unit tall on the strip's top row, left-aligned,
+//     round(12 * ratio) units wide - so a nearly-broken item shows only the
+//     black strip, exactly like the vanilla slot.
+constexpr float kDurabilityBarLeft             = 2.0f;
+constexpr float kDurabilityBarTop              = 12.5f;
+constexpr float kDurabilityBarBackgroundWidth  = 13.0f;
+constexpr float kDurabilityBarBackgroundHeight = 2.0f;
+constexpr float kDurabilityBarForegroundWidth  = 12.0f;
+constexpr float kDurabilityBarForegroundHeight = 1.0f;
 
-/// Full-width dark strip the coloured bar is drawn over.
+/// Black strip the coloured fill is drawn over (vanilla bar + drop shadow).
 [[nodiscard]] constexpr Rect durabilityBackground(Rect icon) {
     return Rect{
-        icon.x0 + kDurabilityBarSideMargin,
-        icon.y1 - kDurabilityBarBottomMargin - kDurabilityBarHeight,
-        icon.x1 - kDurabilityBarSideMargin,
-        icon.y1 - kDurabilityBarBottomMargin
+        icon.x0 + kDurabilityBarLeft,
+        icon.y0 + kDurabilityBarTop,
+        icon.x0 + kDurabilityBarLeft + kDurabilityBarBackgroundWidth,
+        icon.y0 + kDurabilityBarTop + kDurabilityBarBackgroundHeight
     };
 }
 
-/// Left-aligned coloured portion for `ratio` remaining durability. A
-/// positive ratio always yields at least a sliver so a nearly-broken item
-/// stays distinguishable from one with no uses left.
+/// Coloured fill for `ratio` remaining durability: the top row of the strip,
+/// left-aligned, a whole number of units wide (vanilla rounds the 12-unit bar
+/// to the nearest unit, so ratios below 1/24 draw no fill at all).
 [[nodiscard]] constexpr Rect durabilityForeground(Rect background, float ratio) {
-    if (ratio <= 0.0f) {
-        return Rect{background.x0, background.y0, background.x0, background.y1};
+    float units = 0.0f;
+    if (ratio > 0.0f) {
+        units = static_cast<float>(static_cast<int>(kDurabilityBarForegroundWidth * ratio + 0.5f));
     }
-    float width = background.width() * ratio;
-    if (width < kDurabilityBarMinWidth) {
-        width = kDurabilityBarMinWidth;
+    if (units > kDurabilityBarForegroundWidth) {
+        units = kDurabilityBarForegroundWidth;
     }
-    if (width > background.width()) {
-        width = background.width();
-    }
-    return Rect{background.x0, background.y0, background.x0 + width, background.y1};
+    return Rect{background.x0, background.y0, background.x0 + units, background.y0 + kDurabilityBarForegroundHeight};
 }
 
 } // namespace lamina_peek::render
