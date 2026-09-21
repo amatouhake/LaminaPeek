@@ -111,6 +111,11 @@ void testFingerprintIsOrderAndContentSensitive() {
     uint64_t const ab = fingerprintBundleEntries(a, 1, 2, 0, 1, 999ULL);
     uint64_t const ba = fingerprintBundleEntries(fingerprintBundleEntries(0, 1, 2, 0, 1, 999ULL), 0, 1, 0, 1, 12345ULL);
     CHECK(ab != ba);
+    // The skipped-element sentinel (mirrors HoveredPreviewCache: slot -3)
+    // differs from a real entry and from "no entry".
+    uint64_t const sentinel = fingerprintBundleEntries(0, -3, 0, 0, 0, 0x9E3779B97F4A7C15ULL);
+    CHECK(sentinel != 0 && sentinel != a);
+    CHECK(fingerprintBundleEntries(a, -3, 0, 0, 0, 0x9E3779B97F4A7C15ULL) != ab);
 }
 
 } // namespace

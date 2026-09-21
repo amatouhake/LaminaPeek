@@ -9,6 +9,7 @@
 #include "mod/LaminaPeek.h"
 
 #include <algorithm>
+#include <cassert>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -128,18 +129,32 @@ std::optional<ContainerPreview> BundlePreviewProvider::extract(ItemStackBase con
         auto preview             = ContainerPreview::empty(BundleGrid::kEmptyColumns, BundleGrid::kEmptyRows);
         preview.family           = ContainerPreview::Family::Bundle;
         preview.skippedSlotCount = skipped;
+#ifdef LAMINAPEEK_TRACE
+        // Fully-undecodable Bundles still log so the trace shows entries=0
+        // with the real skipped count instead of going silent.
+        LaminaPeek::getInstance().getSelf().getLogger().debug("Bundle extract: entries=0 skipped={} grid=3x1", skipped);
+#endif
         return preview;
     }
 
     // Second pass: pack in slot order into the dynamic grid. Sorting by stored
     // slot keeps insertion-adjacent items adjacent on screen, and compacting
-    // drops the sparse gaps a fixed grid would draw as holes.
+    // drops the sparse gaps a fixed grid would draw as holes. Duplicate Slot
+    // values can push decoded past kMaxSlots even though each index is in
+    // range, so truncate to the cap (folding the tail into skipped) BEFORE
+    // sizing the grid: shapeFor clamps, but the pack loop must never write
+    // more entries than the grid holds.
     std::sort(decoded.begin(), decoded.end(), [](DecodedEntry const& a, DecodedEntry const& b) {
         return a.slot < b.slot;
     });
+    if (static_cast<int>(decoded.size()) > BundleGrid::kMaxSlots) {
+        skipped += static_cast<int>(decoded.size()) - BundleGrid::kMaxSlots;
+        decoded.resize(static_cast<size_t>(BundleGrid::kMaxSlots));
+    }
     BundleGrid const grid   = BundleGrid::shapeFor(static_cast<int>(decoded.size()));
     auto             preview = ContainerPreview::empty(grid.columns, grid.rows);
     preview.family           = ContainerPreview::Family::Bundle;
+    assert(preview.slots.size() >= decoded.size());
     for (size_t i = 0; i < decoded.size(); ++i) {
         preview.slots[i] = std::move(decoded[i].stack);
     }

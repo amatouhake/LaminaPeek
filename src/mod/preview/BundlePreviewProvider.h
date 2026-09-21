@@ -11,13 +11,14 @@ namespace lamina_peek::preview {
 /// list, decoded per entry with `ItemStack::fromTag` — the same mechanism the
 /// Shulker provider and the game itself use to round-trip stored items.
 ///
-/// Why NBT and not the live dynamic-container registry:
-/// - `StorageItemComponentTags::{bundleContentTag,bundleIDTag,bundleWeightTag}`
-///   link server-side only (probe: `bundleContentTag`/`bundleWeightTag` and
+/// Why NBT and not the live dynamic-container registry (see
+/// `docs/bundle-link-probe.md` for the full transcript: every candidate
+/// symbol fails client link with LNK2019):
+/// - `StorageItemComponentTags::{bundleContentTag,bundleIDTag,bundleWeightTag}`,
 ///   `StorageItemUtility::{getStorageItemID,getStorageItemWeightDataClient}`
-///   plus `ContainerManagerController::getDynamicContainerModel` all fail to
-///   resolve in a client link; only `bundleIDTag` resolves). There is no
-///   client-callable "give me all contents" API in 26.51.3 headers.
+///   and `ContainerManagerController::getDynamicContainerModel` do not
+///   resolve in a client link — there is no client-callable "give me all
+///   contents" API in 26.51.3.
 /// - The live alternative (`getStorageItemID` + `getDynamicContainerModel` +
 ///   `StorageItemContainerModel::mContainer` -> `Container::getItem`) is
 ///   server-side-only in this SDK and would couple the preview to vanilla's

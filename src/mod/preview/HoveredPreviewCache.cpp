@@ -30,6 +30,10 @@ uint64_t fingerprintBundleContent(ItemStackBase const& item) {
     uint64_t fingerprint = 0;
     for (auto const& entryPtr : itemsIt->second.get<ListTag>()) {
         if (!entryPtr || entryPtr->getId() != Tag::Type::Compound) {
+            // A Compound<->non-Compound flip at a stable address must change
+            // the fingerprint (extract counts these as skipped): mix a
+            // sentinel that no real entry can produce.
+            fingerprint = fingerprintBundleEntries(fingerprint, -3, 0, 0, 0, 0x9E3779B97F4A7C15ULL);
             continue;
         }
         auto const& entry = entryPtr->as<CompoundTag>();
